@@ -1,57 +1,40 @@
 import 'package:dio/dio.dart';
-import '../constants/app_constants.dart';
-import '../storage/secure_storage.dart';
 
+/// Dio client — intentionally prepared but NOT wired into any prototype flow.
+///
+/// When the company REST API is ready:
+///   1. point [baseUrl] at the company gateway,
+///   2. implement data/remote/api_service.dart methods with [_dio],
+///   3. swap the local data sources injected inside services/ for remote ones.
+/// Screens, providers, models and UI stay unchanged.
 class DioClient {
-  static final DioClient _instance = DioClient._internal();
-  factory DioClient() => _instance;
-  late final Dio dio;
-
-  DioClient._internal() {
-    dio = Dio(BaseOptions(
-      baseUrl: AppConstants.apiBaseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
-      headers: {'Content-Type': 'application/json'},
-    ));
-    dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final token = await SecureStorage.getToken();
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        handler.next(options);
-      },
-      onError: (error, handler) {
-        handler.next(error);
-      },
-    ));
+  DioClient._() {
+    _dio = Dio(
+      BaseOptions(
+        // Placeholder — company will provide the real base URL later.
+        baseUrl: 'https://api.example-company.com/v1',
+        connectTimeout: const Duration(seconds: 12),
+        receiveTimeout: const Duration(seconds: 15),
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          // Future: attach company auth token / api key here.
+          handler.next(options);
+        },
+        onError: (error, handler) {
+          // Future: map DioException -> human readable AppError.
+          handler.next(error);
+        },
+      ),
+    );
   }
 
-  Future<Response> get(String path, {Map<String, dynamic>? queryParameters}) =>
-      dio.get(path, queryParameters: queryParameters);
+  static final DioClient instance = DioClient._();
 
-  Future<Response> post(String path, {dynamic data}) =>
-      dio.post(path, data: data);
+  late final Dio _dio;
 
-  Future<Response> put(String path, {dynamic data}) =>
-      dio.put(path, data: data);
-
-  Future<Response> delete(String path) =>
-      dio.delete(path);
-
-  String getErrorMessage(DioException e) {
-    if (e.response?.data is Map && e.response?.data['detail'] != null) {
-      return e.response!.data['detail'].toString();
-    }
-    switch (e.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.receiveTimeout:
-        return 'Connection timed out. Please try again.';
-      case DioExceptionType.connectionError:
-        return 'Unable to connect to server. Check your connection.';
-      default:
-        return 'Something went wrong. Please try again.';
-    }
-  }
+  Dio get dio => _dio;
 }

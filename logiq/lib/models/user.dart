@@ -1,100 +1,113 @@
-class TransporterProfile {
-  final String companyName;
-  final String companyEmail;
-  final String whatsappPhone;
-  final String gstNumber;
-  final String transportId;
-
-  const TransporterProfile({
-    required this.companyName,
-    required this.companyEmail,
-    required this.whatsappPhone,
-    required this.gstNumber,
-    required this.transportId,
-  });
-
-  factory TransporterProfile.fromJson(Map<String, dynamic> json) {
-    return TransporterProfile(
-      companyName: json['company_name'] as String? ?? '',
-      companyEmail: json['company_email'] as String? ?? '',
-      whatsappPhone: json['whatsapp_phone'] as String? ?? '',
-      gstNumber: json['gst_number'] as String? ?? '',
-      transportId: json['transport_id'] as String? ?? '',
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'company_name': companyName,
-      'company_email': companyEmail,
-      'whatsapp_phone': whatsappPhone,
-      'gst_number': gstNumber,
-      'transport_id': transportId,
-    };
-  }
-}
-
-class User {
-  final int id;
+class AppUser {
+  final int? id;
   final String name;
+  final String companyName;
   final String email;
-  final String? phone;
+  final String password;
   final String role;
-  final String status;
+  final String phone;
+  final String status; // 'pending' | 'approved' | 'rejected'
+  final String rejectionReason;
   final DateTime createdAt;
-  final TransporterProfile? transporterProfile;
 
-  const User({
-    required this.id,
+  const AppUser({
+    this.id,
     required this.name,
+    this.companyName = '',
     required this.email,
-    this.phone,
+    required this.password,
     required this.role,
-    required this.status,
+    this.phone = '',
+    this.status = statusApproved,
+    this.rejectionReason = '',
     required this.createdAt,
-    this.transporterProfile,
   });
 
-  factory User.fromJson(Map<String, dynamic> json) {
-    final profile = json['transporter_profile'];
+  static const roleAdmin = 'admin';
+  static const roleUser = 'user';
+  static const roleShipper = 'shipper';
+  static const roleTransporter = 'transporter';
 
-    return User(
-      id: json['id'] as int? ?? 0,
-      name: json['name'] as String? ?? '',
-      email: json['email'] as String? ?? '',
-      phone: json['phone'] as String?,
-      role: json['role'] as String? ?? 'user',
-      status: json['status'] as String? ?? 'pending',
-      createdAt: _parseDateTime(json['created_at']),
-      transporterProfile: profile is Map
-          ? TransporterProfile.fromJson(Map<String, dynamic>.from(profile))
-          : null,
+  static const statusPending = 'pending';
+  static const statusApproved = 'approved';
+  static const statusRejected = 'rejected';
+
+  bool get isAdmin => role == roleAdmin;
+  bool get isUser => role == roleUser || role == roleShipper;
+  bool get isShipper => role == roleShipper || role == roleUser;
+  bool get isTransporter => role == roleTransporter;
+
+  bool get isApproved => status == statusApproved;
+  bool get isPending => status == statusPending;
+  bool get isRejected => status == statusRejected;
+
+  String get displayRole {
+    if (isAdmin) return 'Admin';
+    if (isTransporter) return 'Transporter';
+    return 'User';
+  }
+
+  AppUser copyWith({
+    int? id,
+    String? name,
+    String? companyName,
+    String? email,
+    String? password,
+    String? role,
+    String? phone,
+    String? status,
+    String? rejectionReason,
+    bool? isApproved,
+    DateTime? createdAt,
+  }) =>
+      AppUser(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        companyName: companyName ?? this.companyName,
+        email: email ?? this.email,
+        password: password ?? this.password,
+        role: role ?? this.role,
+        phone: phone ?? this.phone,
+        status: status ??
+            (isApproved != null
+                ? (isApproved ? statusApproved : statusPending)
+                : this.status),
+        rejectionReason: rejectionReason ?? this.rejectionReason,
+        createdAt: createdAt ?? this.createdAt,
+      );
+
+  Map<String, Object?> toMap() => {
+        if (id != null) 'id': id,
+        'name': name,
+        'company_name': companyName,
+        'email': email,
+        'password': password,
+        'role': role,
+        'phone': phone,
+        'status': status,
+        'rejection_reason': rejectionReason,
+        'is_approved': isApproved ? 1 : 0,
+        'created_at': createdAt.toIso8601String(),
+      };
+
+  factory AppUser.fromMap(Map<String, Object?> m) {
+    String status = (m['status'] as String?) ?? '';
+    if (status.isEmpty) {
+      final isApprovedInt = m['is_approved'] as int? ?? 1;
+      status = isApprovedInt == 1 ? statusApproved : statusPending;
+    }
+    return AppUser(
+      id: m['id'] as int?,
+      name: (m['name'] ?? '') as String,
+      companyName: (m['company_name'] ?? '') as String,
+      email: (m['email'] ?? '') as String,
+      password: (m['password'] ?? '') as String,
+      role: (m['role'] ?? 'user') as String,
+      phone: (m['phone'] ?? '') as String,
+      status: status,
+      rejectionReason: (m['rejection_reason'] ?? '') as String,
+      createdAt:
+          DateTime.tryParse((m['created_at'] ?? '') as String) ?? DateTime.now(),
     );
   }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'email': email,
-      'phone': phone,
-      'role': role,
-      'status': status,
-      'created_at': createdAt.toIso8601String(),
-      'transporter_profile': transporterProfile?.toJson(),
-    };
-  }
-
-  bool get isAdmin => role == 'admin';
-  bool get isUser => role == 'user';
-  bool get isTransporter => role == 'transporter';
-  bool get isApproved => status == 'approved';
-}
-
-DateTime _parseDateTime(dynamic value) {
-  if (value == null) return DateTime.now();
-  if (value is DateTime) return value;
-  if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
-  if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
-  return DateTime.now();
 }

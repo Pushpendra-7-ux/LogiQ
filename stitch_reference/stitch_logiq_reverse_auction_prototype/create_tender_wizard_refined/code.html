@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Outfit:wght@500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-canvas": "#F8FAFC",
+            "surface-card": "#FFFFFF",
+            "surface-navy": "#0F172A",
+            "border-subtle": "#E2E8F0",
+            "border-strong": "#CBD5E1",
+            "secondary": "#2563EB",
+            "secondary-dark": "#1D4ED8",
+            "emerald-success": "#10B981",
+            "rose-alert": "#EF4444",
+            "amber-soft": "#FEF3C7",
+            "blue-soft": "#EFF6FF",
+            "primary": "#0F172A",
+            "on-surface": "#0F172A",
+            "on-surface-variant": "#64748B"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            headline: ["Outfit", "sans-serif"],
+            outfit: ["Outfit", "sans-serif"]
+          },
+          borderRadius: {
+            "2xl": "1rem",
+            "3xl": "1.5rem"
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    @layer base {
+      html, body {
+        width: 100vw;
+        margin: 0;
+        padding: 0;
+        background-color: #F8FAFC;
+        color: #0F172A;
+      }
+      body {
+        overscroll-behavior: none;
+      }
+      .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom, 16px);
+      }
+      .pt-safe {
+        padding-top: env(safe-area-inset-top, 0px);
+      }
+    }
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    .tap-scale {
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+    .tap-scale:active {
+      transform: scale(0.98);
+    }
+    @keyframes subtlePulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.55; transform: scale(1.08); }
+    }
+    .beacon-pulse {
+      animation: subtlePulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
+</head>
+<body class="bg-surface-canvas font-sans text-on-surface flex flex-col min-h-screen antialiased selection:bg-blue-100">
+<!-- Header: Sleek, high polish with Brand Logo IMAGE_7 and Glassmorphism -->
+<header class="fixed top-0 inset-x-0 z-50 pt-safe bg-white/90 backdrop-blur-xl border-b border-slate-200/80 shadow-[0_2px_12px_rgba(15,23,42,0.03)]">
+<div class="h-16 px-4 flex items-center justify-between max-w-lg mx-auto">
+<div class="flex items-center gap-2.5">
+<button aria-label="Go back" class="w-9 h-9 -ml-1 rounded-xl flex items-center justify-center text-slate-700 hover:bg-slate-100 transition-colors tap-scale" onclick="history.back()">
+<span class="material-symbols-outlined text-[22px]">arrow_back</span>
+</button>
+<!-- Prominent Brand Logo -->
+<div class="flex items-center">
+<img alt="LOGIQ Reverse Auction" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1VttlbU9CYdlWRFhizrN_2Sl9btegWgQL0TCfu-o2EbA64NMNlTlyl2fFxW6xc4fcx0o7kEeL-FHhOQgsIvjuEMi9FdRdg-h6mvk2PO0rHypZBGmCN9L4_dbntDk0QrcUC82utKh6_mWwyULhccpkL3AVpcMvBJCvLAspEbasJx52YTFvy4nWF96kz1BGY0QsXE4nOae2nhhN20b5g9QaB8Wydb5Jdwl4DJpfi-kHXtFX_o7fuo-gZEMJU"/>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="hidden sm:inline-block px-2.5 py-1 text-xs font-semibold font-outfit rounded-full bg-slate-100 text-slate-700">Tender Admin</span>
+<div class="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-outfit font-bold text-xs shadow-sm ring-2 ring-slate-100">
+<span class="material-symbols-outlined text-[19px]">account_circle</span>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Wizard Content -->
+<main class="flex-1 w-full max-w-lg mx-auto pt-20 pb-36 px-4">
+<!-- Status & Auto-save Banner -->
+<div class="pt-2 pb-3 flex items-center justify-between">
+<div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200/70 shadow-xs">
+<span class="relative flex h-2 w-2">
+<span class="beacon-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+</span>
+<span class="font-outfit font-bold text-xs tracking-wider text-slate-800 uppercase">TND-2024-0982</span>
+</div>
+<div class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50/80 border border-blue-100 rounded-full text-blue-700 text-xs font-medium">
+<span class="material-symbols-outlined text-[15px] text-blue-600">cloud_done</span>
+<span>Auto-saved to Drafts</span>
+</div>
+</div>
+<!-- Wizard Stepper (Card with high visual order) -->
+<div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm mb-4 transition-all">
+<div class="flex items-center justify-between mb-2.5">
+<div class="flex items-center gap-1.5">
+<span class="px-2 py-0.5 rounded-md bg-blue-600/10 text-blue-700 font-outfit font-bold text-[11px] tracking-wide uppercase">Step 1 of 4</span>
+<span class="text-xs font-semibold text-slate-900">Route &amp; Schedule</span>
+</div>
+<span class="text-[11px] text-slate-500 font-medium">Next: Cargo Details</span>
+</div>
+<!-- Progress Track -->
+<div class="grid grid-cols-4 gap-1.5 mb-2.5">
+<div class="h-1.5 rounded-full bg-slate-900"></div>
+<div class="h-1.5 rounded-full bg-slate-200"></div>
+<div class="h-1.5 rounded-full bg-slate-200"></div>
+<div class="h-1.5 rounded-full bg-slate-200"></div>
+</div>
+<div class="flex justify-between text-[11px] font-semibold text-slate-400">
+<span class="text-slate-900 font-bold">1. Route</span>
+<span>2. Cargo</span>
+<span>3. Carriers</span>
+<span>4. Review</span>
+</div>
+</div>
+<div class="space-y-4">
+<!-- Section 1: Route Corridor Card -->
+<div class="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-sm">
+<div class="flex items-center justify-between pb-3.5 mb-3 border-b border-slate-100">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">alt_route</span>
+</div>
+<div>
+<h2 class="font-outfit font-bold text-base text-slate-900 tracking-tight">Freight Corridor</h2>
+<p class="text-xs text-slate-500">Verified industrial transport route</p>
+</div>
+</div>
+<span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-full">
+<span class="material-symbols-outlined text-[14px]">verified</span> GPS Audited
+          </span>
+</div>
+<!-- Origin & Destination Waypoints -->
+<div class="relative pl-7 space-y-4.5 before:content-[''] before:absolute before:left-[11px] before:top-3.5 before:bottom-4 before:w-[2px] before:bg-slate-200 before:border-dashed before:border-l-2 before:border-slate-300">
+<!-- Origin -->
+<div class="relative">
+<div class="absolute -left-7 top-0.5 w-6 h-6 rounded-full bg-slate-900 border-2 border-white flex items-center justify-center text-white shadow-xs">
+<span class="material-symbols-outlined text-[13px]">factory</span>
+</div>
+<div class="bg-slate-50/80 hover:bg-slate-50 border border-slate-200/70 p-3 rounded-xl flex items-center justify-between transition-colors">
+<div class="min-w-0 pr-2">
+<span class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Pickup Origin</span>
+<p class="font-outfit font-bold text-slate-900 text-sm truncate">Gwalior Industrial Yard 4B, MP</p>
+<p class="text-xs text-slate-500 mt-0.5">Central Dispatch Gate #03 · MP-07</p>
+</div>
+<button class="w-8 h-8 rounded-lg flex items-center justify-center text-blue-600 hover:bg-blue-50 transition-colors tap-scale" title="Edit Origin">
+<span class="material-symbols-outlined text-[18px]">edit_location_alt</span>
+</button>
+</div>
+</div>
+<!-- Destination -->
+<div class="relative pt-1">
+<div class="absolute -left-7 top-1.5 w-6 h-6 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center text-white shadow-xs">
+<span class="material-symbols-outlined text-[13px]">warehouse</span>
+</div>
+<div class="bg-slate-50/80 hover:bg-slate-50 border border-slate-200/70 p-3 rounded-xl flex items-center justify-between transition-colors">
+<div class="min-w-0 pr-2">
+<span class="block text-[10px] uppercase font-bold text-blue-700 tracking-wider">Drop Destination</span>
+<p class="font-outfit font-bold text-slate-900 text-sm truncate">Raipur Steel Plant, Sector 7, CG</p>
+<p class="text-xs text-slate-500 mt-0.5">Inward Heavy Bay #12 · CG-04</p>
+</div>
+<button class="w-8 h-8 rounded-lg flex items-center justify-center text-blue-600 hover:bg-blue-50 transition-colors tap-scale" title="Edit Destination">
+<span class="material-symbols-outlined text-[18px]">edit_location_alt</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Telemetry Pill Strip -->
+<div class="mt-4 pt-3 flex items-center justify-around bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-slate-500 text-[18px]">straighten</span>
+<span class="font-outfit font-bold text-xs text-slate-900">685 KM</span>
+</div>
+<div class="h-3.5 w-px bg-slate-200"></div>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-slate-500 text-[18px]">rv_hookup</span>
+<span class="font-medium text-xs text-slate-700">25 MT Flatbed</span>
+</div>
+<div class="h-3.5 w-px bg-slate-200"></div>
+<div class="flex items-center gap-1.5 text-blue-700">
+<span class="material-symbols-outlined text-[17px]">timelapse</span>
+<span class="font-outfit font-bold text-xs">~22 Hrs Transit</span>
+</div>
+</div>
+</div>
+<!-- Section 2: Schedule & High-Contrast Auction Clock (Mirroring SCREEN_2 elegance) -->
+<div class="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-sm">
+<div class="flex items-center gap-2.5 mb-3.5">
+<div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">calendar_clock</span>
+</div>
+<div>
+<h2 class="font-outfit font-bold text-base text-slate-900 tracking-tight">Timeline &amp; Auction Window</h2>
+<p class="text-xs text-slate-500">Live auction clock with anti-sniping protection</p>
+</div>
+</div>
+<!-- Delivery SLA Card -->
+<div class="bg-slate-50/90 border border-slate-200/60 p-3 rounded-xl mb-3.5">
+<div class="flex items-center justify-between mb-1.5">
+<span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Guaranteed Transit SLA</span>
+<span class="font-outfit text-[11px] font-bold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-full">Standard Tier</span>
+</div>
+<div class="flex items-center justify-between text-slate-800">
+<div>
+<p class="font-outfit font-bold text-sm text-slate-900">18 Sep 2024</p>
+<p class="text-xs text-slate-500">08:00 AM Dispatch</p>
+</div>
+<div class="flex flex-col items-center px-2">
+<span class="material-symbols-outlined text-blue-600 text-[18px]">east</span>
+<span class="text-[10px] font-semibold text-slate-400">58 hrs span</span>
+</div>
+<div class="text-right">
+<p class="font-outfit font-bold text-sm text-slate-900">20 Sep 2024</p>
+<p class="text-xs text-slate-500">06:00 PM Delivery</p>
+</div>
+</div>
+</div>
+<!-- Refined Dark Console Timer Card (Live Auction Console Visual Language) -->
+<div class="bg-surface-navy text-white rounded-2xl p-4 shadow-md space-y-3.5 border border-slate-800">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="relative flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+</span>
+<span class="font-outfit font-bold text-xs uppercase tracking-wider text-white">Reverse Auction Clock</span>
+</div>
+<span class="font-outfit text-[11px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30 px-2.5 py-0.5 rounded-full">
+              Anti-Sniping Active
+            </span>
+</div>
+<!-- 3-Phase Grid -->
+<div class="grid grid-cols-3 gap-2 text-center">
+<div class="bg-white/5 border border-white/10 p-2.5 rounded-xl">
+<p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Start Time</p>
+<p class="font-outfit font-bold text-white text-xs mt-1">17 Sep, 14:00</p>
+</div>
+<div class="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
+<p class="text-[10px] uppercase font-bold text-amber-300 tracking-wider">Soft End</p>
+<p class="font-outfit font-bold text-amber-300 text-xs mt-1">15:45 IST</p>
+</div>
+<div class="bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl">
+<p class="text-[10px] uppercase font-bold text-rose-400 tracking-wider">Hard Stop</p>
+<p class="font-outfit font-bold text-rose-400 text-xs mt-1">16:00 IST</p>
+</div>
+</div>
+<div class="flex items-center gap-2 text-[11px] text-slate-400 bg-black/30 p-2 rounded-xl border border-white/5">
+<span class="material-symbols-outlined text-blue-400 text-[16px]">shield_lock</span>
+<span>Buffer rule: L1 bid placed within last 3 min extends clock by +180s.</span>
+</div>
+</div>
+</div>
+<!-- Section 3: Pricing Rules & Engine -->
+<div class="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-sm">
+<div class="flex items-center gap-2.5 mb-3.5">
+<div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">currency_rupee</span>
+</div>
+<div>
+<h2 class="font-outfit font-bold text-base text-slate-900 tracking-tight">Auction Ceiling &amp; Decrement</h2>
+<p class="text-xs text-slate-500">Fixed limits for dynamic reverse bidding</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<!-- Base Ceiling Price -->
+<div class="bg-slate-50 border border-slate-200/80 p-3 rounded-xl focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all">
+<label class="block text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-1">Ceiling Price (L0)</label>
+<div class="flex items-center gap-1">
+<span class="font-outfit font-bold text-slate-400 text-base">₹</span>
+<input aria-label="Base Ceiling Price" class="w-full bg-transparent font-outfit text-xl text-slate-900 font-extrabold focus:outline-none p-0 border-none leading-none" type="text" value="52,000"/>
+</div>
+<div class="mt-1 flex items-center gap-1 text-[10px] text-slate-500">
+<span class="material-symbols-outlined text-[12px] text-emerald-600">auto_graph</span>
+<span>Target: ₹51,500</span>
+</div>
+</div>
+<!-- Decrement Step Input -->
+<div class="bg-blue-50/50 border border-blue-100 p-3 rounded-xl focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all">
+<label class="block text-[10px] uppercase font-bold text-blue-700 tracking-wider mb-1">Min Decrement</label>
+<div class="flex items-center gap-1">
+<span class="font-outfit font-bold text-blue-600 text-base">₹</span>
+<input aria-label="Price Decrement Step" class="w-full bg-transparent font-outfit text-xl text-blue-700 font-extrabold focus:outline-none p-0 border-none leading-none" type="text" value="25"/>
+</div>
+<div class="mt-1 flex items-center gap-1 text-[10px] text-blue-700 font-medium">
+<span class="material-symbols-outlined text-[12px]">gavel</span>
+<span>Per bid step rule</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 4: Material Specifications -->
+<div class="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-sm">
+<div class="flex items-center justify-between mb-3">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">inventory_2</span>
+</div>
+<h2 class="font-outfit font-bold text-base text-slate-900 tracking-tight">Cargo &amp; Materials</h2>
+</div>
+<button class="text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg flex items-center gap-1 font-outfit font-bold text-xs transition-colors tap-scale" id="addMaterialBtn" type="button">
+<span class="material-symbols-outlined text-[15px]">add</span> Add Item
+          </button>
+</div>
+<!-- Item Capsule with clean typography -->
+<div class="bg-slate-50/80 border border-slate-200/80 p-3.5 rounded-xl">
+<div class="flex items-start justify-between">
+<div>
+<div class="flex items-center gap-2 mb-1.5">
+<span class="font-outfit text-[11px] bg-slate-200/80 text-slate-800 px-2 py-0.5 rounded font-bold">HSN: 7208</span>
+<span class="font-outfit text-[11px] bg-blue-600 text-white px-2 py-0.5 rounded font-bold">25 MT</span>
+</div>
+<h3 class="font-outfit font-bold text-slate-900 text-sm">Hot Rolled Industrial Steel Coils</h3>
+<div class="flex items-center gap-1.5 mt-2 text-slate-500 text-xs">
+<span class="material-symbols-outlined text-[15px] text-blue-600">verified_user</span>
+<span>Moisture-proof heavy tarpaulin required</span>
+</div>
+</div>
+<button class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition-colors tap-scale" title="Remove Cargo" type="button">
+<span class="material-symbols-outlined text-[18px]">delete_outline</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Section 5: Transporter Pool Preview -->
+<div class="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">hub</span>
+</div>
+<div>
+<h3 class="font-outfit font-bold text-sm text-slate-900">Carrier Eligibility Pool</h3>
+<p class="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> 5 Verified Transporters (Tier-1)
+              </p>
+</div>
+</div>
+<!-- Toggle Switch -->
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" id="carrierToggle" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+</label>
+</div>
+<div class="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+<div class="flex -space-x-2 overflow-hidden">
+<span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-900 text-[10px] font-outfit font-bold text-white ring-2 ring-white">TL</span>
+<span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-600 text-[10px] font-outfit font-bold text-white ring-2 ring-white">GX</span>
+<span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500 text-[10px] font-outfit font-bold text-white ring-2 ring-white">SC</span>
+<span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-200 text-[10px] font-outfit font-bold text-slate-700 ring-2 ring-white">+2</span>
+</div>
+<button class="text-blue-700 font-outfit font-bold text-xs flex items-center gap-0.5 hover:underline tap-scale" type="button">
+            Manage Pool <span class="material-symbols-outlined text-[15px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Floating Sticky Action Bar -->
+<div class="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/80 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] pb-safe">
+<div class="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
+<!-- Save Draft Button -->
+<button class="flex-1 h-12 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-outfit font-bold text-sm flex items-center justify-center gap-1.5 transition-all tap-scale" id="saveDraftBtn" type="button">
+<span class="material-symbols-outlined text-[18px]">bookmark_border</span>
+<span>Save Draft</span>
+</button>
+<!-- Continue to Review Button -->
+<button class="flex-[2] h-12 rounded-xl bg-slate-900 hover:bg-black text-white font-outfit font-bold text-sm flex items-center justify-center gap-2 shadow-sm shadow-slate-900/20 transition-all tap-scale" id="continueBtn" type="button">
+<span>Continue to Review</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Micro Interaction Script -->
+<script>
+    (function() {
+      const saveBtn = document.getElementById('saveDraftBtn');
+      const continueBtn = document.getElementById('continueBtn');
+      const addBtn = document.getElementById('addMaterialBtn');
+
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+          const original = saveBtn.innerHTML;
+          saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">sync</span><span>Saving...</span>';
+          setTimeout(() => {
+            saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] text-emerald-600">check_circle</span><span class="text-emerald-700">Saved</span>';
+            setTimeout(() => {
+              saveBtn.innerHTML = original;
+            }, 1600);
+          }, 600);
+        });
+      }
+
+      if (addBtn) {
+        addBtn.addEventListener('click', () => {
+          // Subtle feedback
+          addBtn.classList.add('bg-blue-200');
+          setTimeout(() => addBtn.classList.remove('bg-blue-200'), 200);
+        });
+      }
+
+      if (continueBtn) {
+        continueBtn.addEventListener('click', () => {
+          continueBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">sync</span><span>Validating Corridor...</span>';
+          setTimeout(() => {
+            continueBtn.innerHTML = '<span>Continue to Review</span><span class="material-symbols-outlined text-[18px]">arrow_forward</span>';
+          }, 900);
+        });
+      }
+    })();
+  </script>
+</body></html>

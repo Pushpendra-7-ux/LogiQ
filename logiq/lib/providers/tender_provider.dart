@@ -1,158 +1,437 @@
-import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
-import '../services/tender_service.dart';
-import '../models/tender.dart';
-import '../core/network/dio_client.dart';
+import 'package:flutter/foundation.dart';
+import 'package:logiq/core/constants/app_constants.dart';
+import 'package:logiq/core/constants/demo_constants.dart';
+import 'package:logiq/models/material.dart';
+import 'package:logiq/models/tender.dart';
+import 'package:logiq/models/transporter.dart';
+import 'package:logiq/services/tender_service.dart';
 
 class TenderProvider extends ChangeNotifier {
-  final TenderService _service;
+  final TenderService _tenderService = TenderService.instance;
 
-  TenderProvider({TenderService? service}) : _service = service ?? TenderService();
+  TenderProvider();
 
   List<Tender> _tenders = [];
-  List<Tender> _drafts = [];
-  List<Tender> _history = [];
-  Tender? _currentTender;
-  bool _isLoading = false;
-  String? _error;
+  List<Transporter> _approvedTransporters = [];
+  bool isLoading = false;
+  String? error;
 
-  List<Tender> get tenders => List.unmodifiable(_tenders);
-  List<Tender> get drafts => List.unmodifiable(_drafts);
-  List<Tender> get history => List.unmodifiable(_history);
-  Tender? get currentTender => _currentTender;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
-  bool get hasError => _error != null;
+  List<Tender> get tenders => _tenders;
+  List<Transporter> get approvedTransporters => _approvedTransporters;
 
-  void _setLoading(bool value) {
-    _isLoading = value;
+  @visibleForTesting
+  void setTendersForTesting(List<Tender> tenders) {
+    _tenders = tenders;
     notifyListeners();
   }
 
-  void _setError(String? message) {
-    _error = message;
+  @visibleForTesting
+  void addTenderForTesting(Tender tender) {
+    _tenders.add(tender);
+    notifyListeners();
   }
 
-  void clearError() {
-    if (_error != null) {
-      _error = null;
+  Future<List<Transporter>> loadApprovedTransporters() async {
+    try {
+      _approvedTransporters = await _tenderService.getApprovedTransporters();
       notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading approved transporters: $e');
     }
+    return _approvedTransporters;
   }
 
-  void setCurrentTender(Tender? tender) {
-    _currentTender = tender;
+  List<Tender> get activeTenders => _tenders.where((t) =>
+      t.status != TenderStatus.draft &&
+      t.status != TenderStatus.pendingPublish &&
+      t.status != TenderStatus.completed &&
+      t.status != TenderStatus.cancelled).toList();
+
+  List<Tender> get completedTenders => _tenders.where((t) =>
+      t.status == TenderStatus.completed).toList();
+
+  List<Tender> get scheduledTenders => _tenders.where((t) =>
+      t.status == TenderStatus.scheduled).toList();
+
+  List<Tender> get draftTenders => _tenders.where((t) =>
+      t.status == TenderStatus.draft || t.status == TenderStatus.pendingPublish).toList();
+
+  List<Tender> get pendingPublishTenders => _tenders.where((t) =>
+      t.status == TenderStatus.pendingPublish).toList();
+
+  int get activeTenderCount => activeTenders.length;
+  int get draftCount => draftTenders.length;
+  int get completedCount => completedTenders.length;
+
+  Future<void> loadTendersForUser(int userId) async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      _tenders = await _tenderService.getTendersForUser(userId);
+      // Auto-publish any expired pending-publish tenders
+      await _autoPublishExpired(userId);
+    } catch (e) {
+      error = e.toString();
+    }
+
+    isLoading = false;
     notifyListeners();
   }
 
-  void clearCurrentTender() {
-    _currentTender = null;
+  Future<void> loadTendersForTransporter(int transporterId) async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      _tenders = await _tenderService.getTendersForTransporter(transporterId);
+    } catch (e) {
+      error = e.toString();
+    }
+
+    isLoading = false;
     notifyListeners();
   }
 
-  String _resolveError(Object e) {
-    if (e is DioException) {
-      return DioClient().getErrorMessage(e);
+  Future<void> loadAllTenders() async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      _tenders = await _tenderService.getAllTenders();
+    } catch (e) {
+      error = e.toString();
     }
-    return e.toString();
+
+    isLoading = false;
+    notifyListeners();
   }
 
-  Future<void> fetchTenders() async {
-    _setLoading(true);
+  Tender? tenderById(int id) {
     try {
-      _tenders = await _service.getTenders();
-      _setError(null);
-    } catch (e) {
-      _setError(_resolveError(e));
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  Future<void> fetchDrafts() async {
-    _setLoading(true);
-    try {
-      _drafts = await _service.getDrafts();
-      _setError(null);
-    } catch (e) {
-      _setError(_resolveError(e));
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  Future<void> fetchHistory() async {
-    _setLoading(true);
-    try {
-      _history = await _service.getHistory();
-      _setError(null);
-    } catch (e) {
-      _setError(_resolveError(e));
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  Future<void> fetchTenderById(int id) async {
-    _setLoading(true);
-    try {
-      _currentTender = await _service.getTenderById(id);
-      _setError(null);
-    } catch (e) {
-      _currentTender = null;
-      _setError(_resolveError(e));
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  Future<Tender?> createTender(Map<String, dynamic> data) async {
-    _setLoading(true);
-    try {
-      final tender = await _service.createTender(data);
-      _tenders = [..._tenders, tender];
-      _setError(null);
-      _setLoading(false);
-      return tender;
-    } catch (e) {
-      _setError(_resolveError(e));
-      _setLoading(false);
+      return _tenders.firstWhere((t) => t.id == id);
+    } catch (_) {
       return null;
     }
   }
 
-  Future<bool> publishTender(int id) async {
-    _setLoading(true);
+  void markTenderCompletedLocally(int tenderId) {
+    final index = _tenders.indexWhere((t) => t.id == tenderId);
+    if (index != -1) {
+      _tenders[index] = _tenders[index].copyWith(status: TenderStatus.completed);
+      notifyListeners();
+    }
+  }
+
+  Future<Tender?> getOrFetchTender(int tenderId) async {
+    final cached = tenderById(tenderId);
+    if (cached != null) return cached;
     try {
-      await _service.publishTender(id);
-      await fetchTenders();
-      await fetchDrafts();
-      _setError(null);
-      _setLoading(false);
+      final fetched = await _tenderService.getTenderById(tenderId);
+      if (fetched != null) {
+        _tenders.removeWhere((t) => t.id == tenderId);
+        _tenders.add(fetched);
+        notifyListeners();
+      }
+      return fetched;
+    } catch (e) {
+      debugPrint('Error fetching tender $tenderId: $e');
+      return null;
+    }
+  }
+
+  Future<List<MaterialItem>> materialsFor(int tenderId) async {
+    return await _tenderService.getMaterials(tenderId);
+  }
+
+  Future<List<int>> participantsFor(int tenderId) async {
+    return await _tenderService.getParticipantIds(tenderId);
+  }
+
+  Future<int> participantCountFor(int tenderId) async {
+    return await _tenderService.getParticipantCount(tenderId);
+  }
+
+  /// Create a tender as a "Pending Publish" draft with 3-minute countdown.
+  /// Returns the tender ID if successful.
+  Future<int?> createTenderAsDraft({
+    required String title,
+    required String pickup,
+    required String drop,
+    required DateTime deliveryStart,
+    required DateTime deliveryEnd,
+    required List<MaterialItem> materials,
+    required List<int> transporterIds,
+    required double ceilingBid,
+    required double minDecrement,
+    required int createdBy,
+    String remarks = '',
+    String vehicleType = 'Truck',
+  }) async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      final now = DateTime.now();
+      final publishAt = now.add(AppConstants.draftCountdownDuration);
+      final biddingStart = publishAt;
+      final softEnd = biddingStart.add(DemoConstants.stage1Duration);
+      final hardStop = softEnd.add(DemoConstants.hardStopBuffer);
+
+      final newTender = Tender(
+        title: title,
+        createdBy: createdBy,
+        pickup: pickup,
+        drop: drop,
+        deliveryStart: deliveryStart,
+        deliveryEnd: deliveryEnd,
+        closingDate: publishAt,
+        biddingStart: biddingStart,
+        softEnd: softEnd,
+        hardStop: hardStop,
+        priceDifference: minDecrement,
+        ceilingBid: ceilingBid,
+        minDecrement: minDecrement,
+        remarks: remarks,
+        vehicleType: vehicleType,
+        publishAt: publishAt,
+        status: TenderStatus.pendingPublish,
+        createdAt: now,
+      );
+
+      final tenderId = await _tenderService.createTender(
+        tender: newTender,
+        materials: materials,
+        transporterIds: transporterIds,
+        auction: null, // No auction record until published
+      );
+
+      await loadTendersForUser(createdBy);
+      isLoading = false;
+      notifyListeners();
+      return tenderId;
+    } catch (e) {
+      error = e.toString();
+      isLoading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> createTender({
+    required String title,
+    required String pickup,
+    required String drop,
+    required DateTime deliveryStart,
+    required DateTime deliveryEnd,
+    required DateTime closingDate,
+    required DateTime biddingStart,
+    required softEnd,
+    required DateTime hardStop,
+    required List<MaterialItem> materials,
+    required List<int> transporterIds,
+    required double priceDifference,
+    required int createdBy,
+    bool isDraft = false,
+    double ceilingBid = 75000.0,
+    double minDecrement = 500.0,
+    String remarks = '',
+    String vehicleType = 'Truck',
+  }) async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      final now = DateTime.now();
+      final status = isDraft ? TenderStatus.draft : TenderStatus.scheduled;
+      final newTender = Tender(
+        id: null,
+        title: title,
+        createdBy: createdBy,
+        pickup: pickup,
+        drop: drop,
+        deliveryStart: deliveryStart,
+        deliveryEnd: deliveryEnd,
+        closingDate: closingDate,
+        biddingStart: biddingStart,
+        softEnd: softEnd,
+        hardStop: hardStop,
+        priceDifference: priceDifference,
+        ceilingBid: ceilingBid,
+        minDecrement: minDecrement,
+        remarks: remarks,
+        vehicleType: vehicleType,
+        status: status,
+        createdAt: now,
+      );
+
+      final auctionMap = isDraft
+          ? null
+          : {
+              'current_stage': 1,
+              'stage1_start': biddingStart.toIso8601String(),
+              'stage1_end': softEnd.toIso8601String(),
+              'stage2_start': softEnd.toIso8601String(),
+              'stage2_end': hardStop.toIso8601String(),
+              'status': 'scheduled',
+            };
+
+      await _tenderService.createTender(
+        tender: newTender,
+        materials: materials,
+        transporterIds: transporterIds,
+        auction: auctionMap,
+      );
+
+      await loadTendersForUser(createdBy);
       return true;
     } catch (e) {
-      _setError(_resolveError(e));
-      _setLoading(false);
+      error = e.toString();
+      isLoading = false;
+      notifyListeners();
       return false;
     }
   }
 
-  void removeLocalTender(int id) {
-    _tenders = _tenders.where((t) => t.id != id).toList();
-    _drafts = _drafts.where((t) => t.id != id).toList();
-    if (_currentTender?.id == id) {
-      _currentTender = null;
-    }
+  /// Publish a pending-publish draft immediately (auto or manual).
+  Future<bool> publishDraft({
+    required int tenderId,
+    required int userId,
+  }) async {
+    isLoading = true;
+    error = null;
     notifyListeners();
+
+    try {
+      final tender = tenderById(tenderId);
+      if (tender == null) throw Exception('Tender not found');
+
+      final now = DateTime.now();
+      final biddingStart = now;
+      final softEnd = biddingStart.add(DemoConstants.stage1Duration);
+      final hardStop = softEnd.add(DemoConstants.hardStopBuffer);
+
+      // Update tender to scheduled
+      await _tenderService.setStatus(tenderId, TenderStatus.scheduled);
+
+      // Create the auction record
+      await _tenderService.createAuctionForTender(
+        tenderId: tenderId,
+        biddingStart: biddingStart,
+        softEnd: softEnd,
+        hardStop: hardStop,
+      );
+
+      await loadTendersForUser(userId);
+      return true;
+    } catch (e) {
+      error = e.toString();
+      isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 
-  void reset() {
-    _tenders = [];
-    _drafts = [];
-    _history = [];
-    _currentTender = null;
-    _error = null;
-    _isLoading = false;
+  /// Cancel a draft during the 3-minute window.
+  Future<bool> cancelDraft({
+    required int tenderId,
+    required int userId,
+  }) async {
+    isLoading = true;
+    error = null;
     notifyListeners();
+
+    try {
+      await _tenderService.setStatus(tenderId, TenderStatus.cancelled);
+      await loadTendersForUser(userId);
+      return true;
+    } catch (e) {
+      error = e.toString();
+      isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> updateDraft({
+    required int tenderId,
+    required Tender tender,
+    required List<MaterialItem> materials,
+    required List<int> transporterIds,
+  }) async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      await _tenderService.updateDraft(
+        tenderId: tenderId,
+        tender: tender,
+        materials: materials,
+        transporterIds: transporterIds,
+      );
+      await loadTendersForUser(tender.createdBy);
+      return true;
+    } catch (e) {
+      error = e.toString();
+      isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> deleteDraft({
+    required int tenderId,
+    required int userId,
+  }) async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      await _tenderService.deleteDraft(tenderId);
+      await loadTendersForUser(userId);
+      return true;
+    } catch (e) {
+      error = e.toString();
+      isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Auto-publish all expired pending-publish tenders.
+  Future<void> _autoPublishExpired(int userId) async {
+    final expired = _tenders.where((t) => t.shouldAutoPublish).toList();
+    for (final t in expired) {
+      if (t.id != null) {
+        try {
+          await publishDraft(tenderId: t.id!, userId: userId);
+        } catch (e) {
+          debugPrint('Auto-publish failed for tender ${t.id}: $e');
+        }
+      }
+    }
+  }
+
+  /// Check and auto-publish expired drafts (called by timer).
+  Future<void> checkAutoPublish(int userId) async {
+    final expired = _tenders.where((t) => t.shouldAutoPublish).toList();
+    if (expired.isEmpty) return;
+
+    for (final t in expired) {
+      if (t.id != null) {
+        try {
+          await publishDraft(tenderId: t.id!, userId: userId);
+        } catch (e) {
+          debugPrint('Auto-publish failed for tender ${t.id}: $e');
+        }
+      }
+    }
   }
 }

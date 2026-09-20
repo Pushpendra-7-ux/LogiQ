@@ -1,83 +1,92 @@
 import 'package:flutter/material.dart';
+
 import 'app_colors.dart';
 
 class AppTextStyles {
-  static const TextStyle heading1 = TextStyle(
-    fontSize: 28,
-    fontWeight: FontWeight.bold,
-    color: AppColors.textPrimary,
+  AppTextStyles._();
+
+  static const TextStyle display = TextStyle(
+    fontSize: 34,
+    fontWeight: FontWeight.w800,
+    letterSpacing: 1.5,
+    color: AppColors.ink,
+    height: 1.1,
   );
 
-  static const TextStyle heading2 = TextStyle(
-    fontSize: 22,
-    fontWeight: FontWeight.bold,
-    color: AppColors.textPrimary,
+  static const TextStyle h1 = TextStyle(
+    fontSize: 26,
+    fontWeight: FontWeight.w800,
+    color: AppColors.ink,
   );
 
-  static const TextStyle heading3 = TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textPrimary,
+  static const TextStyle h2 = TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
+    color: AppColors.ink,
+  );
+
+  static const TextStyle h3 = TextStyle(
+    fontSize: 17,
+    fontWeight: FontWeight.w700,
+    color: AppColors.ink,
   );
 
   static const TextStyle body = TextStyle(
-    fontSize: 16,
-    color: AppColors.textPrimary,
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    color: AppColors.ink,
   );
 
-  static const TextStyle bodyLarge = TextStyle(
-    fontSize: 18,
-    color: AppColors.textPrimary,
+  static const TextStyle bodyStrong = TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w700,
+    color: AppColors.ink,
+  );
+
+  static const TextStyle bodyMuted = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.inkSoft,
   );
 
   static const TextStyle caption = TextStyle(
-    fontSize: 14,
-    color: AppColors.textSecondary,
+    fontSize: 12.5,
+    fontWeight: FontWeight.w600,
+    color: AppColors.inkFaint,
+    letterSpacing: 0.4,
   );
 
   static const TextStyle button = TextStyle(
     fontSize: 16,
-    fontWeight: FontWeight.w600,
-    color: Colors.white,
+    fontWeight: FontWeight.w800,
+    letterSpacing: 0.3,
   );
 
   static const TextStyle timer = TextStyle(
-    fontSize: 36,
-    fontWeight: FontWeight.bold,
-    fontFamily: 'monospace',
+    fontSize: 46,
+    fontWeight: FontWeight.w800,
+    color: AppColors.ink,
+    fontFeatures: [FontFeature.tabularFigures()],
+    letterSpacing: 1,
   );
 
-  static const TextStyle timerSmall = TextStyle(
-    fontSize: 20,
-    fontWeight: FontWeight.bold,
-    fontFamily: 'monospace',
+  static const TextStyle amount = TextStyle(
+    fontSize: 22,
+    fontWeight: FontWeight.w800,
+    color: AppColors.ink,
   );
 
-  static const TextStyle rank = TextStyle(
-    fontSize: 24,
-    fontWeight: FontWeight.bold,
+  static const TextStyle labelBold = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w800,
+    letterSpacing: 0.8,
+    color: AppColors.inkSoft,
   );
 
-  static const TextStyle bidAmount = TextStyle(
-    fontSize: 28,
-    fontWeight: FontWeight.bold,
-    color: AppColors.primary,
-  );
-
-  static const TextStyle currency = TextStyle(
-    fontSize: 20,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textPrimary,
-  );
-
-  static const TextStyle label = TextStyle(
-    fontSize: 14,
-    fontWeight: FontWeight.w500,
-    color: AppColors.textSecondary,
-  );
-
-  static const TextStyle error = TextStyle(
-    fontSize: 14,
-    color: AppColors.error,
-  );
+  // Common aliases
+  static const TextStyle h4 = h3;
+  static const TextStyle bodyLarge = bodyStrong;
+  static const TextStyle bodyMedium = body;
+  static const TextStyle bodySmall = bodyMuted;
+  static const TextStyle label = labelBold;
 }

@@ -1,105 +1,117 @@
-import '../core/network/dio_client.dart';
-import '../core/constants/api_endpoints.dart';
-import '../models/tender.dart';
+import 'package:logiq/data/local/local_auction_data_source.dart';
+import 'package:logiq/data/local/local_tender_data_source.dart';
+import 'package:logiq/data/local/local_user_data_source.dart';
+import 'package:logiq/models/auction.dart';
+import 'package:logiq/models/material.dart';
+import 'package:logiq/models/tender.dart';
+import 'package:logiq/models/transporter.dart';
 
+/// Service layer abstraction for Tender management and draft workflows.
+/// Providers communicate with this service instead of LocalTenderDataSource directly.
+/// When REST APIs arrive, only this service will be updated to use DioClient.
 class TenderService {
-  final _dio = DioClient();
+  TenderService._();
+  static final TenderService instance = TenderService._();
 
-  Future<List<Tender>> getTenders() async {
-    final r = await _dio.get(ApiEndpoints.tenders);
-    return _parseTenderList(r.data);
+  final LocalTenderDataSource _tenderDataSource = LocalTenderDataSource.instance;
+  final LocalUserDataSource _userDataSource = LocalUserDataSource.instance;
+  final LocalAuctionDataSource _auctionDataSource = LocalAuctionDataSource.instance;
+
+  Future<List<Transporter>> getApprovedTransporters() async {
+    return await _userDataSource.allCompanies(approvedOnly: true);
   }
 
-  Future<Tender> createTender(Map<String, dynamic> data) async {
-    final r = await _dio.post(ApiEndpoints.tenders, data: data);
-    return _parseTender(r.data);
+  Future<List<Tender>> getTendersForUser(int userId, {List<TenderStatus>? statuses}) async {
+    return await _tenderDataSource.byCreator(userId, statuses: statuses);
   }
 
-  Future<Tender> updateTender(int id, Map<String, dynamic> data) async {
-    final r = await _dio.put(ApiEndpoints.tenderById(id), data: data);
-    return _parseTender(r.data);
+  Future<List<Tender>> getTendersForTransporter(int transporterId) async {
+    return await _tenderDataSource.forTransporter(transporterId);
   }
 
-  Future<Map<String, dynamic>> publishTender(int id) async {
-    final r = await _dio.post(ApiEndpoints.publishTender(id));
-    return _parseMap(r.data);
+  Future<List<Tender>> getAllTenders() async {
+    return await _tenderDataSource.all();
   }
 
-  Future<Tender> getTenderById(int id) async {
-    final r = await _dio.get(ApiEndpoints.tenderById(id));
-    return _parseTender(r.data);
+  Future<Tender?> getTenderById(int id) async {
+    return await _tenderDataSource.byId(id);
   }
 
-  Future<List<Tender>> getDrafts() async {
-    final r = await _dio.get(ApiEndpoints.draftTenders);
-    return _parseTenderList(r.data);
+  Future<List<MaterialItem>> getMaterials(int tenderId) async {
+    return await _tenderDataSource.materials(tenderId);
   }
 
-  Future<List<Tender>> getHistory() async {
-    final r = await _dio.get(ApiEndpoints.tenderHistory);
-    return _parseTenderList(r.data);
+  Future<List<int>> getParticipantIds(int tenderId) async {
+    return await _tenderDataSource.participantIds(tenderId);
   }
 
-  Future<List<Map<String, dynamic>>> getApprovedTransporters() async {
-    final r = await _dio.get(ApiEndpoints.approvedTransporters);
-    return _parseTransporterList(r.data);
+  Future<int> getParticipantCount(int tenderId) async {
+    return await _tenderDataSource.participantCount(tenderId);
   }
 
-  Future<void> addParticipants(int tenderId, List<int> transporterIds) async {
-    await _dio.post(
-      ApiEndpoints.tenderParticipants(tenderId),
-      data: {'transporter_ids': transporterIds},
+  Future<List<Tender>> getHistory({int? creatorId, int? transporterId}) async {
+    return await _tenderDataSource.history(creatorId: creatorId, transporterId: transporterId);
+  }
+
+  Future<int> createTender({
+    required Tender tender,
+    required List<MaterialItem> materials,
+    required List<int> transporterIds,
+    Map<String, Object?>? auction,
+  }) async {
+    return await _tenderDataSource.insert(
+      tender: tender,
+      materials: materials,
+      transporterIds: transporterIds,
+      auction: auction,
     );
   }
 
-  List<Tender> _parseTenderList(dynamic data) {
-    if (data is List) {
-      return data.map(_parseTender).toList();
-    }
-
-    if (data is Map) {
-      final tenders = data['tenders'];
-      if (tenders is List) {
-        return tenders.map(_parseTender).toList();
-      }
-    }
-
-    return <Tender>[];
+  Future<void> updateDraft({
+    required int tenderId,
+    required Tender tender,
+    required List<MaterialItem> materials,
+    required List<int> transporterIds,
+  }) async {
+    await _tenderDataSource.updateDraft(
+      tenderId: tenderId,
+      tender: tender,
+      materials: materials,
+      transporterIds: transporterIds,
+    );
   }
 
-  Tender _parseTender(dynamic data) {
-    if (data is Map) {
-      final tender = data['tender'];
-      if (tender is Map) {
-        return Tender.fromJson(Map<String, dynamic>.from(tender));
-      }
-
-      return Tender.fromJson(Map<String, dynamic>.from(data));
-    }
-
-    throw StateError('Invalid tender response.');
+  Future<void> setStatus(int tenderId, TenderStatus status) async {
+    await _tenderDataSource.setStatus(tenderId, status);
   }
 
-  List<Map<String, dynamic>> _parseTransporterList(dynamic data) {
-    if (data is List) {
-      return data.map(_parseMap).toList();
-    }
-
-    if (data is Map) {
-      final transporters = data['transporters'];
-      if (transporters is List) {
-        return transporters.map(_parseMap).toList();
-      }
-    }
-
-    return <Map<String, dynamic>>[];
+  Future<void> deleteDraft(int tenderId) async {
+    await _tenderDataSource.deleteDraft(tenderId);
   }
 
-  Map<String, dynamic> _parseMap(dynamic data) {
-    if (data is Map) {
-      return Map<String, dynamic>.from(data);
-    }
+  /// Create an auction record for a just-published tender.
+  Future<void> createAuctionForTender({
+    required int tenderId,
+    required DateTime biddingStart,
+    required DateTime softEnd,
+    required DateTime hardStop,
+  }) async {
+    final auction = Auction(
+      tenderId: tenderId,
+      currentStage: 1,
+      stage1Start: biddingStart,
+      stage1End: softEnd,
+      stage2Start: softEnd,
+      stage2End: hardStop,
+      status: AuctionStatus.scheduled,
+    );
+    await _auctionDataSource.save(auction);
 
-    return <String, dynamic>{};
+    // Sync participants from tender_participants to auction_participants
+    final participantIds = await _tenderDataSource.participantIds(tenderId);
+    final savedAuction = await _auctionDataSource.byTenderId(tenderId);
+    if (savedAuction?.id != null) {
+      await _auctionDataSource.syncParticipants(savedAuction!.id!, participantIds);
+    }
   }
 }

@@ -180,6 +180,18 @@ GoRouter buildRouter(BuildContext context) {
         ),
       ),
       GoRoute(
+        path: '/tender/edit',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: ValueKey('edit_${(state.extra as Tender?)?.id ?? UniqueKey()}'),
+          child: CreateTenderScreen(
+            key: ValueKey('create_tender_${(state.extra as Tender?)?.id ?? "new"}'),
+            editingTender: state.extra as Tender?,
+          ),
+          transitionDuration: RouteTransitions.duration,
+          transitionsBuilder: RouteTransitions.slideUp,
+        ),
+      ),
+      GoRoute(
         path: '/transporter-selection',
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,

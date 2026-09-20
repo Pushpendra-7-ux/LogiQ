@@ -53,12 +53,22 @@ class ProfileScreen extends StatelessWidget {
 
     final String initial = user.name.isNotEmpty ? user.name[0].toUpperCase() : '?';
 
+    final primaryColor = authProvider.isUser ? AppColors.logiqGreen : AppColors.electricBlue;
+    final badgeBgColor = authProvider.isUser ? AppColors.logiqGreenBg : AppColors.electricBlueLight;
+    final badgeBorderColor = authProvider.isUser ? AppColors.logiqGreenBorder : AppColors.electricBlueBorder;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
         backgroundColor: AppColors.white,
         elevation: 0,
         foregroundColor: AppColors.ink,
+        leading: (context.canPop() || authProvider.isUser)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: AppColors.ink),
+                onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+              )
+            : null,
       ),
       backgroundColor: AppColors.background,
       body: SingleChildScrollView(
@@ -68,7 +78,7 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: AppDimensions.xl),
             CircleAvatar(
               radius: 32,
-              backgroundColor: AppColors.electricBlue,
+              backgroundColor: primaryColor,
               child: Text(
                 initial,
                 style: AppTextStyles.h1.copyWith(color: Colors.white),
@@ -80,13 +90,13 @@ class ProfileScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: AppDimensions.md, vertical: AppDimensions.xs),
               decoration: BoxDecoration(
-                color: AppColors.electricBlueLight,
+                color: badgeBgColor,
                 borderRadius: BorderRadius.circular(AppDimensions.radiusLg),
-                border: Border.all(color: AppColors.electricBlueBorder),
+                border: Border.all(color: badgeBorderColor),
               ),
               child: Text(
                 authProvider.userRole.toUpperCase(),
-                style: AppTextStyles.labelBold.copyWith(color: AppColors.electricBlue),
+                style: AppTextStyles.labelBold.copyWith(color: primaryColor),
               ),
             ).animate().fadeIn(delay: 200.ms),
             const SizedBox(height: AppDimensions.xxxl),

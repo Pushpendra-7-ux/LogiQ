@@ -51,6 +51,18 @@ class _CreateTenderScreenState extends State<CreateTenderScreen> {
   @override
   void initState() {
     super.initState();
+    _initFromEditingTender();
+  }
+
+  @override
+  void didUpdateWidget(covariant CreateTenderScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.editingTender?.id != oldWidget.editingTender?.id) {
+      _initFromEditingTender();
+    }
+  }
+
+  void _initFromEditingTender() {
     if (widget.editingTender != null) {
       final t = widget.editingTender!;
       _pickupController.text = t.pickup;
@@ -63,25 +75,25 @@ class _CreateTenderScreenState extends State<CreateTenderScreen> {
       _selectedVehicleType = t.vehicleType;
 
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (t.id != null) {
-          final mats = await context.read<TenderProvider>().materialsFor(t.id!);
-          final parts = await context.read<TenderProvider>().participantsFor(t.id!);
-          if (mounted) {
-            setState(() {
-              if (mats.isNotEmpty) {
-                _qtyController.text = mats.first.quantity.toInt().toString();
-                _selectedUnit = mats.first.unit;
-                _selectedHsn = HsnData.entries.firstWhere(
-                  (h) => h.code == mats.first.hsnCode,
-                  orElse: () => HsnEntry(code: mats.first.hsnCode, name: mats.first.description, unit: mats.first.unit),
-                );
-              }
-              if (parts.isNotEmpty) {
-                _selectAllTransporters = false;
-                _selectedTransporterIds = parts;
-              }
-            });
-          }
+        if (!mounted || t.id == null) return;
+        final tenderProvider = context.read<TenderProvider>();
+        final mats = await tenderProvider.materialsFor(t.id!);
+        final parts = await tenderProvider.participantsFor(t.id!);
+        if (mounted) {
+          setState(() {
+            if (mats.isNotEmpty) {
+              _qtyController.text = mats.first.quantity.toInt().toString();
+              _selectedUnit = mats.first.unit;
+              _selectedHsn = HsnData.entries.firstWhere(
+                (h) => h.code == mats.first.hsnCode,
+                orElse: () => HsnEntry(code: mats.first.hsnCode, name: mats.first.description, unit: mats.first.unit),
+              );
+            }
+            if (parts.isNotEmpty) {
+              _selectAllTransporters = false;
+              _selectedTransporterIds = parts;
+            }
+          });
         }
       });
     }

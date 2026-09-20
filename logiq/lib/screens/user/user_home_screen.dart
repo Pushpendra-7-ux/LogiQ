@@ -115,22 +115,29 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
               Text('LogiQ', style: AppTextStyles.h2.copyWith(fontWeight: FontWeight.w800)),
             ],
           ),
-          Row(
-            children: [
-              Text('Hi, $userName', style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(width: 12),
-              Container(
-                width: 36,
-                height: 36,
-                decoration: const BoxDecoration(color: AppColors.logiqGreenBg, shape: BoxShape.circle),
-                child: Center(
-                  child: Text(
-                    initial,
-                    style: AppTextStyles.body.copyWith(color: AppColors.logiqGreen, fontWeight: FontWeight.w700),
+          InkWell(
+            onTap: () => context.push('/profile'),
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              child: Row(
+                children: [
+                  Text('Hi, $userName', style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 12),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(color: AppColors.logiqGreenBg, shape: BoxShape.circle),
+                    child: Center(
+                      child: Text(
+                        initial,
+                        style: AppTextStyles.body.copyWith(color: AppColors.logiqGreen, fontWeight: FontWeight.w700),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ],
       ),

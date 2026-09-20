@@ -27,12 +27,11 @@ class _TenderHistoryScreenState extends State<TenderHistoryScreen> {
 
   Future<void> _loadData() async {
     final user = context.read<AuthProvider>().currentUser;
-    if (user?.id == null) return;
-
-    await context.read<TenderProvider>().loadTendersForUser(user!.id!);
+    final tenderProvider = context.read<TenderProvider>();
+    await tenderProvider.loadTendersForUser(user!.id!);
     if (!mounted) return;
 
-    for (final t in context.read<TenderProvider>().completedTenders) {
+    for (final t in tenderProvider.completedTenders) {
       if (t.id != null && !_winnerCache.containsKey(t.id)) {
         final result = await _auctionService.getResultByTender(t.id!);
         if (result != null && mounted) {

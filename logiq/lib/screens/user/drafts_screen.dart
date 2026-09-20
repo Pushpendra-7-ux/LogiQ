@@ -77,8 +77,8 @@ class _DraftsScreenState extends State<DraftsScreen> {
   }
 
   void _editDraft(Tender draft) {
-    context.push('/tender/create', extra: draft).then((_) {
-      _loadAndRegisterDrafts();
+    context.push('/tender/edit', extra: draft).then((_) {
+      if (mounted) _loadAndRegisterDrafts();
     });
   }
 

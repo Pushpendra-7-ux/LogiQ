@@ -18,7 +18,7 @@ class Stage2LiveScreen extends StatefulWidget {
 }
 
 class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
-  int _activeStage = 1; // 1 = Stage 1 Live Console (Screenshot 10), 2 = Stage 2 Blind Bid (Screenshot 6)
+  int _activeStage = 1;
   late TextEditingController _bidController;
   bool _inclusiveDeclaration = true;
 
@@ -100,7 +100,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
     final tender = tenderProv.tenderById(widget.tenderId);
     final myTransporterId = auth.currentTransporter?.id ?? 1;
 
-    // Check if finished
     if (auctionProv.isFinalized) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) context.pushReplacement('/tender/${widget.tenderId}/result');
@@ -137,7 +136,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
     );
   }
 
-  // Exact Stitch Header for Auction
   PreferredSizeWidget _buildStitchAppBar(BuildContext context) {
     return AppBar(
       backgroundColor: Colors.white,
@@ -149,7 +147,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
       titleSpacing: 0,
       title: Row(
         children: [
-          // Logo Mark
           Container(
             width: 28,
             height: 28,
@@ -192,7 +189,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
         ],
       ),
       actions: [
-        // Stage switcher test trigger
         IconButton(
           icon: Icon(
             _activeStage == 1 ? Icons.lock_outline : Icons.visibility_outlined,
@@ -225,7 +221,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
     );
   }
 
-  // ================= STAGE 1 LIVE (Screenshot 10) =================
   Widget _buildStage1Content(
     BuildContext context,
     Tender? tender,
@@ -238,7 +233,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Route Badge: 🚛 GWALIOR → RAIPUR · 25 MT #8924
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -282,8 +276,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
           ),
         ),
         const SizedBox(height: 10),
-
-        // Dark Navy Timer Card
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
@@ -364,11 +356,8 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
           ),
         ),
         const SizedBox(height: 12),
-
-        // Driver Standing Comparator (2 Side-by-side Cards)
         Row(
           children: [
-            // YOUR BID Card (Amber border)
             Expanded(
               child: Container(
                 padding: const EdgeInsets.all(12),
@@ -420,8 +409,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
               ),
             ),
             const SizedBox(width: 10),
-
-            // LOWEST (L1) Card (Emerald border)
             Expanded(
               child: Container(
                 padding: const EdgeInsets.all(12),
@@ -468,8 +455,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
           ],
         ),
         const SizedBox(height: 10),
-
-        // Target Banner
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -500,8 +485,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
           ),
         ),
         const SizedBox(height: 16),
-
-        // LEADERBOARD TOP 5
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -524,7 +507,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
         ),
         const SizedBox(height: 8),
 
-        // Rank Rows matching Screenshot 10
         _buildLeaderboardRow(1, 'Transporter D', '₹49,250', isFirst: true),
         const SizedBox(height: 6),
         _buildLeaderboardRow(2, 'You (Transporter C)', '₹49,500', isMe: true),
@@ -623,7 +605,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Quick 4 Steppers
             Row(
               children: [
                 _buildStepperButton('-₹25', () => _decrementBid(25)),
@@ -636,7 +617,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
               ],
             ),
             const SizedBox(height: 10),
-            // Input + Submit CTA
             Row(
               children: [
                 Expanded(
@@ -740,7 +720,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
     );
   }
 
-  // ================= STAGE 2 BLIND BID (Screenshot 6) =================
   Widget _buildStage2Content(
     BuildContext context,
     Tender? tender,
@@ -750,7 +729,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
   ) {
     return Column(
       children: [
-        // Route Bar
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
@@ -794,8 +772,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
           ),
         ),
         const SizedBox(height: 10),
-
-        // Navy Timer Box with SEALED BID pill
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
@@ -849,8 +825,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
           ),
         ),
         const SizedBox(height: 14),
-
-        // Core White Bid Box
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(18),
@@ -866,8 +840,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
                 style: TextStyle(color: AppColors.slate, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5),
               ),
               const SizedBox(height: 10),
-
-              // Giant Amount
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -894,8 +866,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-
-              // Comparison Pill
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -915,8 +885,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-
-              // 4 Chips in 4 columns: [-₹100], [-₹250], [-₹500], [-₹1k]
               Row(
                 children: [
                   _buildBlindChip('-₹100', () => _decrementBid(100)),
@@ -929,8 +897,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-
-              // Checkbox declaration
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -949,8 +915,6 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
           ),
         ),
         const SizedBox(height: 14),
-
-        // Trust badge
         const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

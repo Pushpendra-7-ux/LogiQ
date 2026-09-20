@@ -103,8 +103,8 @@ class _PlaceBidScreenState extends State<PlaceBidScreen> {
       
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) {
-        Navigator.pop(context); // pop dialog
-        context.pop(); // pop screen
+        Navigator.pop(context);
+        context.pop();
       }
     } else {
       Haptics.error();

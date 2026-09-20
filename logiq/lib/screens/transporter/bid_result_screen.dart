@@ -36,7 +36,6 @@ class _BidResultScreenState extends State<BidResultScreen> {
     final authProvider = context.read<AuthProvider>();
     final myId = authProvider.currentTransporter?.id;
 
-    // Trigger celebration if current transporter won
     if (auctionProvider.winnerTransporterId == myId || myId != null) {
       _confettiController.play();
       Haptics.winner();
@@ -71,7 +70,6 @@ class _BidResultScreenState extends State<BidResultScreen> {
           SafeArea(
             child: Column(
               children: [
-                // Top Header matching Stitch (with Back button, LOGIQ icon, Title, Avatar)
                 _buildHeader(context),
                 Expanded(
                   child: SingleChildScrollView(
@@ -80,23 +78,14 @@ class _BidResultScreenState extends State<BidResultScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Subheader status row
                         _buildStatusRow(tenderRef, isWinner),
                         const SizedBox(height: 14),
-
-                        // Hero Navy Awarded Card
                         _buildHeroAwardedCard(pickupCity, dropCity, isWinner),
                         const SizedBox(height: 16),
-
-                        // 2x2 Metric Grid (Final Rate, SLA, Tonnage, Vehicle)
                         _buildMetricGrid(winningPrice),
                         const SizedBox(height: 16),
-
-                        // Next Steps / Trip Protocol
                         _buildTripProtocolCard(),
                         const SizedBox(height: 16),
-
-                        // Dispatcher Card
                         _buildDispatcherCard(),
                       ],
                     ),
@@ -105,8 +94,6 @@ class _BidResultScreenState extends State<BidResultScreen> {
               ],
             ),
           ),
-
-          // Confetti overlay on top
           Align(
             alignment: Alignment.topCenter,
             child: ConfettiWidget(
@@ -123,8 +110,6 @@ class _BidResultScreenState extends State<BidResultScreen> {
               ],
             ),
           ),
-
-          // Sticky Bottom Action CTA
           _buildStickyBottomCta(context, isWinner),
         ],
       ),
@@ -497,7 +482,6 @@ class _BidResultScreenState extends State<BidResultScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Step 1: Assign Truck & Driver
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -558,8 +542,6 @@ class _BidResultScreenState extends State<BidResultScreen> {
             ),
           ),
           const SizedBox(height: 8),
-
-          // Step 2: Report to Yard
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(

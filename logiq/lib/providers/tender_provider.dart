@@ -182,6 +182,12 @@ class TenderProvider extends ChangeNotifier {
       final softEnd = biddingStart.add(DemoConstants.stage1Duration);
       final hardStop = softEnd.add(DemoConstants.hardStopBuffer);
 
+      var resolvedTransporterIds = transporterIds;
+      if (resolvedTransporterIds.isEmpty) {
+        final all = await _tenderService.getApprovedTransporters();
+        resolvedTransporterIds = all.where((t) => t.id != null).map((t) => t.id!).toList();
+      }
+
       final newTender = Tender(
         title: title,
         createdBy: createdBy,
@@ -206,8 +212,8 @@ class TenderProvider extends ChangeNotifier {
       final tenderId = await _tenderService.createTender(
         tender: newTender,
         materials: materials,
-        transporterIds: transporterIds,
-        auction: null, // No auction record until published
+        transporterIds: resolvedTransporterIds,
+        auction: null,
       );
 
       await loadTendersForUser(createdBy);
@@ -249,6 +255,13 @@ class TenderProvider extends ChangeNotifier {
     try {
       final now = DateTime.now();
       final status = isDraft ? TenderStatus.draft : TenderStatus.scheduled;
+
+      var resolvedTransporterIds = transporterIds;
+      if (resolvedTransporterIds.isEmpty) {
+        final all = await _tenderService.getApprovedTransporters();
+        resolvedTransporterIds = all.where((t) => t.id != null).map((t) => t.id!).toList();
+      }
+
       final newTender = Tender(
         id: null,
         title: title,
@@ -284,7 +297,7 @@ class TenderProvider extends ChangeNotifier {
       await _tenderService.createTender(
         tender: newTender,
         materials: materials,
-        transporterIds: transporterIds,
+        transporterIds: resolvedTransporterIds,
         auction: auctionMap,
       );
 
@@ -369,11 +382,17 @@ class TenderProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      var resolvedTransporterIds = transporterIds;
+      if (resolvedTransporterIds.isEmpty) {
+        final all = await _tenderService.getApprovedTransporters();
+        resolvedTransporterIds = all.where((t) => t.id != null).map((t) => t.id!).toList();
+      }
+
       await _tenderService.updateDraft(
         tenderId: tenderId,
         tender: tender,
         materials: materials,
-        transporterIds: transporterIds,
+        transporterIds: resolvedTransporterIds,
       );
       await loadTendersForUser(tender.createdBy);
       return true;

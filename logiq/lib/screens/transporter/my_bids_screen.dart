@@ -27,7 +27,6 @@ class _MyBidsScreenState extends State<MyBidsScreen> {
 
     final filteredBids = allBids.where((bid) {
       if (_selectedFilter == 'All') return true;
-      // Mock filtering logic, to be improved based on robust bid statuses
       return true;
     }).toList();
 

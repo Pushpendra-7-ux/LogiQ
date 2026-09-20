@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:logiq/core/theme/app_colors.dart';
 import 'package:logiq/core/widgets/stitch_header.dart';
 import 'package:logiq/core/utils/haptics.dart';
+import 'package:logiq/models/tender.dart';
 import 'package:logiq/providers/auth_provider.dart';
 import 'package:logiq/providers/tender_provider.dart';
 import 'package:logiq/providers/bid_provider.dart';
@@ -38,6 +39,8 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final bidProv = context.watch<BidProvider>();
+    final tenderProv = context.watch<TenderProvider>();
+    final activeTenders = tenderProv.activeTenders;
 
     final companyName = auth.currentTransporter?.companyName ?? 'Apex Freight';
     final activeBidsCount = bidProv.activeBids.isNotEmpty ? bidProv.activeBids.length : 4;
@@ -57,7 +60,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Profile & Credential Ribbon
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -67,7 +69,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
                 ),
                 child: Row(
                   children: [
-                    // Driver photo/avatar with green check
                     Stack(
                       children: [
                         Container(
@@ -134,7 +135,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
                         ],
                       ),
                     ),
-                    // Rating Badge
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
@@ -160,8 +160,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-
-              // 2. 3-Column Velocity Metrics
               Row(
                 children: [
                   Expanded(
@@ -196,8 +194,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
                 ],
               ),
               const SizedBox(height: 14),
-
-              // 3. Urgent Live Action Needed Hero Card (Navy #1E293B)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -215,7 +211,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Top warning & timer
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -265,8 +260,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-
-                    // ID & Lag info
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -314,8 +307,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-
-                    // Micro Split Comparator Floor
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
@@ -345,8 +336,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-
-                    // Counter Action Button
                     SizedBox(
                       width: double.infinity,
                       height: 46,
@@ -376,8 +365,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
-              // 4. Active Live Auctions Section Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -395,38 +382,43 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
                       ),
                     ],
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE2E8F0),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Text(
-                      '3 Running',
-                      style: TextStyle(
-                        color: AppColors.navy,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
+                  InkWell(
+                    onTap: () => context.go('/transporter/available'),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE2E8F0),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${activeTenders.isNotEmpty ? activeTenders.length : 3} Available',
+                        style: const TextStyle(
+                          color: AppColors.navy,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-
-              // Opportunity 1: #TDR-8924 Trailing L1
-              _buildAuctionCard1(context),
-              const SizedBox(height: 10),
-
-              // Opportunity 2: #TDR-8931 Pre-Bid
-              _buildAuctionCard2(context),
-              const SizedBox(height: 10),
-
-              // Opportunity 3: #TDR-8918 Awarded
-              _buildAuctionCard3(context),
+              if (activeTenders.isNotEmpty)
+                ...activeTenders.map(
+                  (t) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _buildDynamicTenderCard(context, t),
+                  ),
+                )
+              else ...[
+                _buildAuctionCard1(context),
+                const SizedBox(height: 10),
+                _buildAuctionCard2(context),
+                const SizedBox(height: 10),
+                _buildAuctionCard3(context),
+              ],
               const SizedBox(height: 20),
-
-              // 5. Active Transit Corridor & Live GPS Section
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -450,8 +442,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-
-              // Map Preview Box
               Container(
                 height: 140,
                 width: double.infinity,
@@ -462,7 +452,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
                 ),
                 child: Stack(
                   children: [
-                    // Mock road map illustration
                     CustomPaint(
                       size: const Size(double.infinity, 140),
                       painter: _MockRoadPainter(),
@@ -497,8 +486,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-
-              // 6. 2x2 Quick Action Grid
               Row(
                 children: [
                   Expanded(
@@ -602,7 +589,167 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
     );
   }
 
-  // Opportunity 1: #TDR-8924 Trailing L1
+  Widget _buildDynamicTenderCard(BuildContext context, Tender tender) {
+    final isLive = tender.status == TenderStatus.stage1 || tender.status == TenderStatus.stage2;
+    final statusColor = isLive ? AppColors.roseAlert : AppColors.secondary;
+    final statusBg = isLive ? AppColors.roseAlert.withValues(alpha: 0.15) : const Color(0xFFEFF6FF);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '#TDR-${tender.id ?? "---"}',
+                style: const TextStyle(
+                  color: AppColors.slate,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11.5,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: statusBg,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      tender.status == TenderStatus.stage2
+                          ? Icons.bolt
+                          : (tender.status == TenderStatus.stage1 ? Icons.gavel : Icons.schedule),
+                      size: 12,
+                      color: statusColor,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      tender.status.label,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tender.shortRoute,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: AppColors.navy,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${tender.vehicleType} • ${tender.title}',
+                      style: const TextStyle(
+                        color: AppColors.slate,
+                        fontSize: 11,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text(
+                    'CEILING CAP',
+                    style: TextStyle(
+                      color: AppColors.slate,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '₹${tender.ceilingBid.toStringAsFixed(0)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: AppColors.navy,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.verified_outlined, size: 14, color: AppColors.emeraldSuccess),
+                  SizedBox(width: 4),
+                  Text(
+                    'Verified Eligible Fleet',
+                    style: TextStyle(
+                      color: AppColors.emeraldSuccess,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  if (tender.status == TenderStatus.stage2) {
+                    context.push('/tender/${tender.id}/live');
+                  } else if (tender.status == TenderStatus.completed) {
+                    context.push('/tender/${tender.id}/result');
+                  } else {
+                    context.push('/tender/${tender.id}/bid');
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: tender.status == TenderStatus.stage2 ? AppColors.navy : AppColors.secondary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  minimumSize: const Size(0, 34),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: Text(
+                  tender.status == TenderStatus.stage2
+                      ? 'Enter Arena'
+                      : (tender.status == TenderStatus.completed ? 'View Results' : 'Place Bid'),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAuctionCard1(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -660,7 +807,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          // Driver quick buttons
           Row(
             children: [
               Expanded(
@@ -732,7 +878,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
     );
   }
 
-  // Opportunity 2: #TDR-8931 Pre-Bid
   Widget _buildAuctionCard2(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -816,7 +961,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
     );
   }
 
-  // Opportunity 3: #TDR-8918 Awarded
   Widget _buildAuctionCard3(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),

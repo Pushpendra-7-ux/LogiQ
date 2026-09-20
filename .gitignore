@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+# Python
+*.pyc
+__pycache__/
+*.pyo
+
+# IDEs
+.idea/
+*.iml
+*.iws
+
+# Build & temporary
+*.log
+.history

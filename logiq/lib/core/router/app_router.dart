@@ -142,6 +142,24 @@ GoRouter buildRouter(BuildContext context) {
             ),
           ),
           GoRoute(
+            path: '/admin/approvals',
+            pageBuilder: (context, state) => CustomTransitionPage(
+              key: state.pageKey,
+              child: const AdminApprovalsScreen(),
+              transitionDuration: RouteTransitions.durationFast,
+              transitionsBuilder: RouteTransitions.fadeScale,
+            ),
+          ),
+          GoRoute(
+            path: '/admin/transporters',
+            pageBuilder: (context, state) => CustomTransitionPage(
+              key: state.pageKey,
+              child: const AdminTransportersScreen(),
+              transitionDuration: RouteTransitions.durationFast,
+              transitionsBuilder: RouteTransitions.fadeScale,
+            ),
+          ),
+          GoRoute(
             path: '/admin/users',
             pageBuilder: (context, state) => CustomTransitionPage(
               key: state.pageKey,
@@ -196,24 +214,6 @@ GoRouter buildRouter(BuildContext context) {
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
           child: const TransporterSelectionScreen(),
-          transitionDuration: RouteTransitions.duration,
-          transitionsBuilder: RouteTransitions.slideUp,
-        ),
-      ),
-      GoRoute(
-        path: '/admin/approvals',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const AdminApprovalsScreen(),
-          transitionDuration: RouteTransitions.duration,
-          transitionsBuilder: RouteTransitions.slideUp,
-        ),
-      ),
-      GoRoute(
-        path: '/admin/transporters',
-        pageBuilder: (context, state) => CustomTransitionPage(
-          key: state.pageKey,
-          child: const AdminTransportersScreen(),
           transitionDuration: RouteTransitions.duration,
           transitionsBuilder: RouteTransitions.slideUp,
         ),

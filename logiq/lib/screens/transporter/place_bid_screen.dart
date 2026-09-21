@@ -24,21 +24,56 @@ class _PlaceBidScreenState extends State<PlaceBidScreen> {
   double _currentAmount = 0;
   bool _isSubmitting = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final auctionProv = context.read<AuctionProvider>();
+      final tenderProv = context.read<TenderProvider>();
+      await auctionProv.loadAuction(widget.tenderId);
+      if (!mounted) return;
+      final tender = tenderProv.tenderById(widget.tenderId);
+      if (tender != null && _currentAmount == 0) {
+        final step = tender.priceDifference;
+        if (auctionProv.rankings.isNotEmpty) {
+          final lowest = auctionProv.rankings.first.amount;
+          setState(() => _currentAmount = (lowest - step).clamp(100.0, tender.ceilingBid));
+        } else {
+          setState(() => _currentAmount = (tender.ceilingBid - step).clamp(100.0, tender.ceilingBid));
+        }
+      }
+    });
+  }
+
   void _submitBid() async {
     final tender = context.read<TenderProvider>().tenderById(widget.tenderId);
     if (tender == null || _currentAmount <= 0) return;
 
-    final step = tender.priceDifference;
-    final ratio = _currentAmount / step;
-    if ((ratio - ratio.round()).abs() > 0.001 || _currentAmount <= 0) {
+    if (_currentAmount > tender.ceilingBid) {
       Haptics.error();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: AppColors.danger,
-          content: Text('Bid amount must be a multiple of ₹${step.toStringAsFixed(0)}'),
+          content: Text('Bid cannot exceed the cap price of ₹${tender.ceilingBid.toStringAsFixed(0)}'),
         ),
       );
       return;
+    }
+
+    final auctionProv = context.read<AuctionProvider>();
+    final step = tender.priceDifference;
+    if (auctionProv.rankings.isNotEmpty) {
+      final lowestBid = auctionProv.rankings.first.amount;
+      if (_currentAmount > lowestBid - step + 0.001) {
+        Haptics.error();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.danger,
+            content: Text('To be L1, bid must be at least ₹${step.toStringAsFixed(0)} lower than current lowest bid (₹${lowestBid.toStringAsFixed(0)})'),
+          ),
+        );
+        return;
+      }
     }
 
     final confirm = await showModalBottomSheet<bool>(
@@ -120,6 +155,7 @@ class _PlaceBidScreenState extends State<PlaceBidScreen> {
   @override
   Widget build(BuildContext context) {
     final tender = context.watch<TenderProvider>().tenderById(widget.tenderId);
+    final auctionProv = context.watch<AuctionProvider>();
     
     if (tender == null) {
       return Scaffold(
@@ -127,6 +163,10 @@ class _PlaceBidScreenState extends State<PlaceBidScreen> {
         body: const Center(child: Text('Tender not found')),
       );
     }
+
+    final hasLowest = auctionProv.rankings.isNotEmpty;
+    final lowestBid = hasLowest ? auctionProv.rankings.first.amount : null;
+    final maxAllowedBid = hasLowest ? lowestBid! - tender.priceDifference : tender.ceilingBid;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -159,25 +199,94 @@ class _PlaceBidScreenState extends State<PlaceBidScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.divider),
+                border: Border.all(color: AppColors.outline),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(tender.title, style: AppTextStyles.h4),
+                  Text(tender.title, style: AppTextStyles.h3),
                   const SizedBox(height: 8),
-                  Text(tender.route, style: AppTextStyles.bodyMedium),
+                  Text(tender.route, style: AppTextStyles.bodyMuted),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceCanvas,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Cap Price', style: AppTextStyles.caption.copyWith(color: AppColors.inkSoft)),
+                              const SizedBox(height: 2),
+                              Text('₹${tender.ceilingBid.toInt()}', style: AppTextStyles.bodyStrong),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.logiqGreenBg,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Current L1', style: AppTextStyles.caption.copyWith(color: AppColors.logiqGreen)),
+                              const SizedBox(height: 2),
+                              Text(
+                                hasLowest ? '₹${lowestBid!.toInt()}' : 'No bids yet',
+                                style: AppTextStyles.bodyStrong.copyWith(color: AppColors.logiqGreen),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceCanvas,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Min Decrement', style: AppTextStyles.caption.copyWith(color: AppColors.inkSoft)),
+                              const SizedBox(height: 2),
+                              Text('₹${tender.priceDifference.toInt()}', style: AppTextStyles.bodyStrong),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 32),
-            const Text('Enter Bid Amount', style: AppTextStyles.h4, textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+            const Text('Enter Bid Amount', style: AppTextStyles.h3, textAlign: TextAlign.center),
+            const SizedBox(height: 6),
+            Text(
+              hasLowest
+                  ? 'To be L1, enter ₹${maxAllowedBid.toInt()} or lower'
+                  : 'Enter ₹${tender.ceilingBid.toInt()} or lower',
+              style: AppTextStyles.bodyMuted.copyWith(color: AppColors.logiqGreen, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 16),
             BidAmountInput(
               currentAmount: _currentAmount,
@@ -185,12 +294,6 @@ class _PlaceBidScreenState extends State<PlaceBidScreen> {
               onAmountChanged: (val) {
                 setState(() => _currentAmount = val);
               },
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Bids must differ by at least ₹${tender.priceDifference.toStringAsFixed(0)}',
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
             ),
           ],
         ),

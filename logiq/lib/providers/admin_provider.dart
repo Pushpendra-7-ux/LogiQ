@@ -18,6 +18,7 @@ class AdminProvider extends ChangeNotifier {
   List<AppUser> approvedUsers = [];
   List<AppUser> rejectedUsers = [];
   List<Transporter> pendingTransporters = [];
+  List<Transporter> get transporters => pendingTransporters;
   bool isLoading = false;
 
   Future<void> loadDashboard() async {
@@ -31,7 +32,6 @@ class AdminProvider extends ChangeNotifier {
       totalTransporterCount = stats.totalTransporters;
       pendingApprovalCount = stats.pendingApprovals;
 
-      // Fetch all registration requests (pending, approved, rejected, except admin)
       final allUsers = await _adminService.getAllUsers();
       registrationRequests =
           allUsers.where((u) => u.role != AppUser.roleAdmin).toList();
@@ -66,12 +66,11 @@ class AdminProvider extends ChangeNotifier {
     await loadDashboard();
   }
 
-  // Backwards compatible aliases
   Future<void> approveUser(int userId) => approveRegistration(userId);
   Future<void> rejectUser(int userId) => rejectRegistration(userId);
 
   Future<List<AppUser>> allUsers() async {
-    return await _adminService.getAllUsers(role: AppUser.roleUser, approved: true);
+    return await _adminService.getAllUsers(role: AppUser.roleUser);
   }
 
   Future<List<Transporter>> allTransporters() async {

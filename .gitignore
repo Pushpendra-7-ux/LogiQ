@@ -11,9 +11,14 @@ __pycache__/
 
 # IDEs
 .idea/
+.vscode/
 *.iml
 *.iws
 
 # Build & temporary
 *.log
 .history
+
+# Release APKs & binaries
+*.apk
+LogiQ-release.apk

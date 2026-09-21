@@ -16,10 +16,13 @@ class HomeShell extends StatelessWidget {
 
     final isUser = auth.isUser;
     final isAdmin = auth.isAdmin;
-    final isTransporter = auth.isTransporter;
 
-    final destinations = isUser ? _userTabs : _otherTabs(isAdmin, isTransporter);
-    final selectedColor = isUser ? AppColors.logiqGreen : AppColors.electricBlue;
+    final destinations = isUser
+        ? _userTabs
+        : isAdmin
+            ? _adminTabs
+            : _transporterTabs;
+    final selectedColor = isUser ? AppColors.logiqGreen : AppColors.logiqGreen;
 
     int selectedIndex = 0;
     for (int i = 0; i < destinations.length; i++) {
@@ -110,32 +113,59 @@ class HomeShell extends StatelessWidget {
     ),
   ];
 
-  static List<_NavItem> _otherTabs(bool isAdmin, bool isTransporter) => [
-        const _NavItem(
-          icon: Icons.grid_view_rounded,
-          activeIcon: Icons.grid_view_rounded,
-          label: 'Dashboard',
-          route: '/home',
-        ),
-        _NavItem(
-          icon: Icons.receipt_long_rounded,
-          activeIcon: Icons.receipt_long_rounded,
-          label: 'Tenders',
-          route: isAdmin ? '/admin/tenders' : '/transporter/available',
-        ),
-        _NavItem(
-          icon: Icons.local_shipping_rounded,
-          activeIcon: Icons.local_shipping_rounded,
-          label: 'Live Loads',
-          route: isTransporter ? '/bids' : '/admin/users',
-        ),
-        const _NavItem(
-          icon: Icons.manage_accounts_rounded,
-          activeIcon: Icons.manage_accounts_rounded,
-          label: 'Settings',
-          route: '/profile',
-        ),
-      ];
+  static const _adminTabs = <_NavItem>[
+    _NavItem(
+      icon: Icons.grid_view_rounded,
+      activeIcon: Icons.grid_view_rounded,
+      label: 'Dashboard',
+      route: '/home',
+    ),
+    _NavItem(
+      icon: Icons.how_to_reg_outlined,
+      activeIcon: Icons.how_to_reg,
+      label: 'Approvals',
+      route: '/admin/approvals',
+    ),
+    _NavItem(
+      icon: Icons.receipt_long_outlined,
+      activeIcon: Icons.receipt_long_rounded,
+      label: 'Tenders',
+      route: '/admin/tenders',
+    ),
+    _NavItem(
+      icon: Icons.manage_accounts_outlined,
+      activeIcon: Icons.manage_accounts_rounded,
+      label: 'Settings',
+      route: '/profile',
+    ),
+  ];
+
+  static const _transporterTabs = <_NavItem>[
+    _NavItem(
+      icon: Icons.grid_view_rounded,
+      activeIcon: Icons.grid_view_rounded,
+      label: 'Dashboard',
+      route: '/home',
+    ),
+    _NavItem(
+      icon: Icons.local_shipping_outlined,
+      activeIcon: Icons.local_shipping_rounded,
+      label: 'Available',
+      route: '/transporter/available',
+    ),
+    _NavItem(
+      icon: Icons.gavel_outlined,
+      activeIcon: Icons.gavel_rounded,
+      label: 'My Bids',
+      route: '/bids',
+    ),
+    _NavItem(
+      icon: Icons.manage_accounts_outlined,
+      activeIcon: Icons.manage_accounts_rounded,
+      label: 'Settings',
+      route: '/profile',
+    ),
+  ];
 }
 
 class _NavItem {

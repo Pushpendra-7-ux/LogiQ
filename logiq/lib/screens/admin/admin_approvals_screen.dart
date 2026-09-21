@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:logiq/core/theme/app_colors.dart';
-import 'package:logiq/core/theme/app_text_styles.dart';
 import 'package:logiq/core/widgets/empty_state.dart';
 import 'package:logiq/models/user.dart';
 import 'package:logiq/providers/admin_provider.dart';
@@ -17,7 +16,7 @@ class AdminApprovalsScreen extends StatefulWidget {
 
 class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
   RequestStatusFilter _currentFilter = RequestStatusFilter.pending;
-  String? _roleFilter; // null = all, 'user' = shipper, 'transporter' = transporter
+  String? _roleFilter;
   final _searchController = TextEditingController();
 
   @override
@@ -79,29 +78,36 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Registration Requests', style: AppTextStyles.h2),
+        title: const Text(
+          'Registration Requests',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink),
+        ),
         backgroundColor: AppColors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.ink),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: AppColors.outline, height: 1),
+        ),
       ),
       body: Column(
         children: [
-          // Filter Tabs & Search Bar
           Container(
             color: AppColors.white,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Column(
               children: [
-                // Search Input
                 TextField(
                   controller: _searchController,
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
-                    hintText: 'Search by company, name, email...',
-                    hintStyle: const TextStyle(color: AppColors.slate, fontSize: 13),
-                    prefixIcon: const Icon(Icons.search, size: 18, color: AppColors.slate),
+                    hintText: 'Search company, name, email...',
+                    hintStyle: const TextStyle(color: AppColors.inkFaint, fontSize: 13),
+                    prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.inkSoft),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear, size: 16, color: AppColors.slate),
+                            icon: const Icon(Icons.clear, size: 18, color: AppColors.inkSoft),
                             onPressed: () {
                               _searchController.clear();
                               setState(() {});
@@ -109,21 +115,23 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
                           )
                         : null,
                     filled: true,
-                    fillColor: AppColors.slateFaint,
+                    fillColor: AppColors.surfaceCanvas,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppColors.cardBorder),
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.outline),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppColors.cardBorder),
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.outline),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.logiqGreen),
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
-
-                // Status Filter Chips
+                const SizedBox(height: 12),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -132,56 +140,53 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
                         label: 'Pending',
                         count: adminProvider.pendingUsers.length,
                         filter: RequestStatusFilter.pending,
-                        color: AppColors.amber,
+                        color: AppColors.warning,
                       ),
                       const SizedBox(width: 8),
                       _buildStatusFilterChip(
                         label: 'Approved',
                         count: adminProvider.approvedUsers.length,
                         filter: RequestStatusFilter.approved,
-                        color: AppColors.emerald,
+                        color: AppColors.logiqGreen,
                       ),
                       const SizedBox(width: 8),
                       _buildStatusFilterChip(
                         label: 'Rejected',
                         count: adminProvider.rejectedUsers.length,
                         filter: RequestStatusFilter.rejected,
-                        color: AppColors.roseAlert,
+                        color: AppColors.danger,
                       ),
                       const SizedBox(width: 8),
                       _buildStatusFilterChip(
                         label: 'All',
                         count: adminProvider.registrationRequests.length,
                         filter: RequestStatusFilter.all,
-                        color: AppColors.navy,
+                        color: AppColors.ink,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
-
-                // Role Filter (All / Shippers / Transporters)
+                const SizedBox(height: 10),
                 Row(
                   children: [
-                    const Text('Role: ',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.slate)),
+                    const Text(
+                      'Role: ',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.inkSoft),
+                    ),
                     _buildRoleFilterChip('All', null),
                     const SizedBox(width: 6),
-                    _buildRoleFilterChip('Users', 'user'),
+                    _buildRoleFilterChip('Shippers', 'user'),
                     const SizedBox(width: 6),
-                    _buildRoleFilterChip('Transporters', 'transporter'),
+                    _buildRoleFilterChip('Carriers', 'transporter'),
                   ],
                 ),
               ],
             ),
           ),
-
-          const Divider(height: 1, color: AppColors.cardBorder),
-
-          // Requests List
+          Container(color: AppColors.outline, height: 1),
           Expanded(
             child: adminProvider.isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.electricBlue))
+                ? const Center(child: CircularProgressIndicator(color: AppColors.logiqGreen))
                 : filteredList.isEmpty
                     ? const EmptyState(
                         icon: Icons.assignment_turned_in_outlined,
@@ -191,7 +196,7 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
                     : ListView.separated(
                         padding: const EdgeInsets.all(16),
                         itemCount: filteredList.length,
-                        separatorBuilder: (_, i) => const SizedBox(height: 14),
+                        separatorBuilder: (context, index) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           final user = filteredList[index];
                           return _buildRequestCard(context, user);
@@ -216,10 +221,10 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? color : color.withValues(alpha: 0.08),
+          color: isSelected ? color : AppColors.surfaceCanvas,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? color : color.withValues(alpha: 0.25),
+            color: isSelected ? color : AppColors.outline,
           ),
         ),
         child: Row(
@@ -230,22 +235,22 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                color: isSelected ? Colors.white : color,
+                color: isSelected ? Colors.white : AppColors.inkSoft,
               ),
             ),
-            const SizedBox(width: 5),
+            const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
-                color: isSelected ? Colors.white.withValues(alpha: 0.25) : color.withValues(alpha: 0.15),
+                color: isSelected ? Colors.white.withValues(alpha: 0.25) : AppColors.outline,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 count.toString(),
                 style: TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 10,
                   fontWeight: FontWeight.w800,
-                  color: isSelected ? Colors.white : color,
+                  color: isSelected ? Colors.white : AppColors.ink,
                 ),
               ),
             ),
@@ -260,18 +265,18 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
     return GestureDetector(
       onTap: () => setState(() => _roleFilter = role),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.navy : Colors.transparent,
+          color: isSelected ? AppColors.ink : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? AppColors.navy : AppColors.cardBorder),
+          border: Border.all(color: isSelected ? AppColors.ink : AppColors.outline),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 11,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? Colors.white : AppColors.slate,
+            color: isSelected ? Colors.white : AppColors.inkSoft,
           ),
         ),
       ),
@@ -280,22 +285,25 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
 
   Widget _buildRequestCard(BuildContext context, AppUser user) {
     final isShipper = user.isUser;
-    final roleColor = isShipper ? AppColors.electricBlue : AppColors.emerald;
+    final roleColor = isShipper ? Colors.blue.shade700 : AppColors.logiqGreen;
+    final roleBg = isShipper ? Colors.blue.shade50 : AppColors.logiqGreenBg;
+    final roleBorder = isShipper ? Colors.blue.shade200 : AppColors.logiqGreenBorder;
+    final roleLabel = isShipper ? 'SHIPPER' : 'CARRIER';
 
     Color statusColor;
     IconData statusIcon;
     String statusText;
 
     if (user.status == AppUser.statusApproved) {
-      statusColor = AppColors.emerald;
+      statusColor = AppColors.logiqGreen;
       statusIcon = Icons.check_circle_rounded;
       statusText = 'Approved';
     } else if (user.status == AppUser.statusRejected) {
-      statusColor = AppColors.roseAlert;
+      statusColor = AppColors.danger;
       statusIcon = Icons.cancel_rounded;
       statusText = 'Rejected';
     } else {
-      statusColor = AppColors.amber;
+      statusColor = AppColors.warning;
       statusIcon = Icons.hourglass_top_rounded;
       statusText = 'Pending';
     }
@@ -308,19 +316,11 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.navy.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: AppColors.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Company Name + Status Badge
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -329,8 +329,8 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
                   companyTitle,
                   style: const TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.navy,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
                   ),
                 ),
               ),
@@ -361,20 +361,19 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
             ],
           ),
           const SizedBox(height: 10),
-
-          // Details
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
-                  color: roleColor.withValues(alpha: 0.1),
+                  color: roleBg,
                   borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: roleBorder),
                 ),
                 child: Text(
-                  user.displayRole.toUpperCase(),
+                  roleLabel,
                   style: TextStyle(
-                    fontSize: 10.5,
+                    fontSize: 10,
                     fontWeight: FontWeight.w800,
                     color: roleColor,
                     letterSpacing: 0.5,
@@ -385,7 +384,7 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
               Flexible(
                 child: Row(
                   children: [
-                    const Icon(Icons.person_outline, size: 14, color: AppColors.slate),
+                    const Icon(Icons.person_outline, size: 14, color: AppColors.inkSoft),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
@@ -393,7 +392,7 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.navy,
+                          color: AppColors.ink,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -403,33 +402,29 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 6),
-
-          // Email & Phone
+          const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.mail_outline_rounded, size: 13, color: AppColors.slate),
+              const Icon(Icons.mail_outline_rounded, size: 14, color: AppColors.inkSoft),
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
                   user.email,
-                  style: const TextStyle(fontSize: 12, color: AppColors.slate),
+                  style: const TextStyle(fontSize: 12, color: AppColors.inkSoft),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (user.phone.isNotEmpty) ...[
                 const SizedBox(width: 10),
-                const Icon(Icons.phone_android_rounded, size: 13, color: AppColors.slate),
+                const Icon(Icons.phone_android_rounded, size: 14, color: AppColors.inkSoft),
                 const SizedBox(width: 4),
                 Text(
                   user.phone,
-                  style: const TextStyle(fontSize: 12, color: AppColors.slate),
+                  style: const TextStyle(fontSize: 12, color: AppColors.inkSoft),
                 ),
               ],
             ],
           ),
-
-          // Registration date
           const SizedBox(height: 6),
           Row(
             children: [
@@ -441,33 +436,29 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
               ),
             ],
           ),
-
-          // Rejection reason if present
           if (user.isRejected && user.rejectionReason.isNotEmpty) ...[
             const SizedBox(height: 10),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.roseAlert.withValues(alpha: 0.08),
+                color: AppColors.danger.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.roseAlert.withValues(alpha: 0.25)),
+                border: Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
               ),
               child: Text(
                 'Rejection Note: ${user.rejectionReason}',
                 style: const TextStyle(
                   fontSize: 12,
-                  color: AppColors.roseAlert,
+                  color: AppColors.danger,
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ),
           ],
-
-          // Action Buttons: Accept / Reject (only shown if pending)
           if (user.isPending) ...[
             const SizedBox(height: 14),
-            const Divider(height: 1, color: AppColors.cardBorder),
+            Container(color: AppColors.outline, height: 1),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -488,7 +479,7 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
                   icon: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
                   label: const Text('Accept', style: TextStyle(fontWeight: FontWeight.w700)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.emerald,
+                    backgroundColor: AppColors.logiqGreen,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
@@ -522,7 +513,7 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
     messenger.showSnackBar(
       SnackBar(
         content: Text('${user.companyName.isNotEmpty ? user.companyName : user.name} approved successfully.'),
-        backgroundColor: AppColors.emerald,
+        backgroundColor: AppColors.logiqGreen,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -537,11 +528,11 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
+        title: const Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: AppColors.roseAlert),
-            const SizedBox(width: 8),
-            const Text('Reject Registration', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            Icon(Icons.warning_amber_rounded, color: AppColors.danger),
+            SizedBox(width: 8),
+            Text('Reject Registration', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
           ],
         ),
         content: Column(
@@ -550,7 +541,7 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
           children: [
             Text(
               'Are you sure you want to reject the registration request for ${user.companyName.isNotEmpty ? user.companyName : user.name}?',
-              style: const TextStyle(fontSize: 13.5, color: AppColors.navy),
+              style: const TextStyle(fontSize: 13.5, color: AppColors.ink),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -592,7 +583,7 @@ class _AdminApprovalsScreenState extends State<AdminApprovalsScreen> {
       messenger.showSnackBar(
         SnackBar(
           content: Text('${user.companyName.isNotEmpty ? user.companyName : user.name} has been rejected.'),
-          backgroundColor: AppColors.navy,
+          backgroundColor: AppColors.ink,
           behavior: SnackBarBehavior.floating,
         ),
       );

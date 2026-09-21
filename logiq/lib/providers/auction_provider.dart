@@ -114,25 +114,18 @@ class AuctionProvider extends ChangeNotifier {
 
     if (amount <= 0) return false;
 
-    final step = currentTender!.priceDifference;
-    final ratio = amount / step;
-    if ((ratio - ratio.round()).abs() > 0.001) {
+    if (amount > currentTender!.ceilingBid) {
       return false;
     }
 
-    // Validate bid: in Stage 1/2 must underbid
+    final step = currentTender!.priceDifference;
     if (rankings.isNotEmpty) {
       final lowestBid = rankings.first.amount;
       if (amount > lowestBid - step + 0.001) {
         return false;
       }
-    } else {
-      if (amount > DemoConstants.baseBidAmount) {
-        return false;
-      }
     }
 
-    // Invalidate previous bids for this transporter
     await _auctionService.invalidatePreviousBids(
       auctionId: currentAuction!.id!,
       transporterId: transporterId,
@@ -224,7 +217,7 @@ class AuctionProvider extends ChangeNotifier {
     final competitorId = Random().nextInt(6) + 2;
 
     final currentLowest =
-        rankings.isNotEmpty ? rankings.first.amount : DemoConstants.baseBidAmount;
+        rankings.isNotEmpty ? rankings.first.amount : (currentTender?.ceilingBid ?? DemoConstants.baseBidAmount);
     final multiples = Random().nextInt(3) + 1;
     final newAmount =
         currentLowest - (currentTender!.priceDifference * multiples);

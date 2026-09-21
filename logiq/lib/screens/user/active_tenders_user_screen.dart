@@ -44,7 +44,10 @@ class _ActiveTendersUserScreenState extends State<ActiveTendersUserScreen> {
     final tenderProvider = context.read<TenderProvider>();
     final auth = context.read<AuthProvider>();
     final userId = auth.currentUser?.id;
-    if (userId == null) return;
+    if (userId == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
 
     try {
       await tenderProvider.loadTendersForUser(userId);

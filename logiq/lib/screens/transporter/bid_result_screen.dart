@@ -36,7 +36,7 @@ class _BidResultScreenState extends State<BidResultScreen> {
     final authProvider = context.read<AuthProvider>();
     final myId = authProvider.currentTransporter?.id;
 
-    if (auctionProvider.winnerTransporterId == myId || myId != null) {
+    if (myId != null && auctionProvider.winnerTransporterId == myId) {
       _confettiController.play();
       Haptics.winner();
     }
@@ -56,8 +56,8 @@ class _BidResultScreenState extends State<BidResultScreen> {
 
     final tender = tenderProvider.tenderById(widget.tenderId);
     final myId = authProvider.currentTransporter?.id;
-    final winningPrice = auctionProvider.winningBid ?? 48750.0;
-    final isWinner = auctionProvider.winnerTransporterId == myId || myId != null;
+    final winningPrice = auctionProvider.winningBid ?? tender?.ceilingBid ?? 48750.0;
+    final isWinner = myId != null && auctionProvider.winnerTransporterId == myId;
 
     final tenderRef = tender != null ? '#TDR-${tender.id}' : '#TDR-8924';
     final pickupCity = tender?.pickup ?? 'Gwalior';

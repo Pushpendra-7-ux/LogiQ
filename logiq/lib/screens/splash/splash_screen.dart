@@ -7,8 +7,6 @@ import 'package:logiq/core/theme/app_text_styles.dart';
 import 'package:logiq/core/constants/app_constants.dart';
 import 'package:logiq/providers/auth_provider.dart';
 
-/// Enterprise splash screen — Google Stitch Enterprise Logistics style.
-/// Deep Navy background, Electric Blue logo container, smooth fade + progress.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 

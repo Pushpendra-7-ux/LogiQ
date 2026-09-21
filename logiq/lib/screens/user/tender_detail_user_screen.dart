@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logiq/core/theme/app_colors.dart';
+import 'package:logiq/core/utils/formatters.dart';
 import 'package:logiq/providers/tender_provider.dart';
 import 'package:logiq/providers/auction_provider.dart';
 import 'package:logiq/models/tender.dart';
@@ -20,6 +21,7 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
   bool _isLoading = true;
   List<MaterialItem> _materials = [];
   bool _isGstVerified = true;
+  int _participantCount = 0;
 
   @override
   void initState() {
@@ -33,6 +35,7 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
     final auctionProv = context.read<AuctionProvider>();
 
     _materials = await tenderProv.materialsFor(widget.tenderId);
+    _participantCount = await tenderProv.participantCountFor(widget.tenderId);
     await auctionProv.loadAuction(widget.tenderId);
 
     if (mounted) {
@@ -77,7 +80,7 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
                         const SizedBox(height: 12),
                         _buildAuctionParamsGrid(tender),
                         const SizedBox(height: 12),
-                        _buildCarrierInvitesCard(),
+                        _buildCarrierInvitesCard(tender, _participantCount),
                         const SizedBox(height: 12),
                         _buildComplianceToggleCard(),
                       ],
@@ -269,9 +272,9 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: AppColors.secondary.withValues(alpha: 0.2)),
                 ),
-                child: const Text(
-                  '685 KM · 25 MT Flatbed',
-                  style: TextStyle(
+                child: Text(
+                  '${tender.vehicleType} · $cargoName',
+                  style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -351,9 +354,9 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
                   color: AppColors.surfaceNavy,
                 ),
               ),
-              const Text(
-                'MP → CG',
-                style: TextStyle(
+              Text(
+                '${tender.pickup} → ${tender.drop}',
+                style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 12,
                   color: AppColors.inkSoft,
@@ -385,8 +388,8 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text(
+            children: [
+              const Text(
                 'CEILING RESERVE',
                 style: TextStyle(
                   fontFamily: 'Inter',
@@ -397,8 +400,8 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
                 ),
               ),
               Text(
-                '₹52,000',
-                style: TextStyle(
+                '₹${tender.ceilingBid.toInt()}',
+                style: const TextStyle(
                   fontFamily: 'Outfit',
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
@@ -451,8 +454,8 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text(
+            children: [
+              const Text(
                 'START TIME',
                 style: TextStyle(
                   fontFamily: 'Inter',
@@ -463,10 +466,10 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
                 ),
               ),
               Text(
-                '17 Sep, 14:00',
-                style: TextStyle(
+                '${Formatters.shortDate(tender.biddingStart)}, ${Formatters.time(tender.biddingStart)}',
+                style: const TextStyle(
                   fontFamily: 'Outfit',
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
@@ -484,9 +487,9 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text(
-                'SOFT END (+3M)',
+            children: [
+              const Text(
+                'SOFT END',
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 9.5,
@@ -496,10 +499,10 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
                 ),
               ),
               Text(
-                '15:45 → 16:00',
-                style: TextStyle(
+                '${Formatters.time(tender.softEnd)} → ${Formatters.time(tender.hardStop)}',
+                style: const TextStyle(
                   fontFamily: 'Outfit',
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: AppColors.emeraldSuccess,
                 ),
@@ -511,7 +514,10 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
     );
   }
 
-  Widget _buildCarrierInvitesCard() {
+  Widget _buildCarrierInvitesCard(Tender tender, int count) {
+    final title = count > 0 ? '$count Transporters Selected' : 'All Transporters Eligible';
+    final subtitle = count > 0 ? '$count verified fleet carriers invited' : 'Open to all verified fleet carriers';
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -527,7 +533,7 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
               Container(
                 width: 38,
                 height: 38,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppColors.surfaceAlt,
                   shape: BoxShape.circle,
                 ),
@@ -536,20 +542,20 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
               const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
-                    '5 Transporters Selected',
-                    style: TextStyle(
+                    title,
+                    style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: AppColors.surfaceNavy,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
-                    'TA · TB · TC · TD · TE',
-                    style: TextStyle(
+                    subtitle,
+                    style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 11,
                       color: AppColors.inkSoft,

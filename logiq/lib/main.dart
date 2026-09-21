@@ -16,19 +16,16 @@ import 'package:logiq/core/database/database_seed.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Lock to portrait — transport workers don't flip phones
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
 
-  // Status bar styling
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.dark,
     statusBarBrightness: Brightness.light,
   ));
 
-  // Initialize and seed local database
   try {
     final db = await DatabaseHelper.instance.database;
     await DatabaseSeed.ensureSeeded(db);

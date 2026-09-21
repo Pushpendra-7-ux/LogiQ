@@ -111,8 +111,10 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
     final seconds = (secondsRemaining % 60).toString().padLeft(2, '0');
     final timeStr = '01:$minutes:$seconds';
 
-    final lowestBid = auctionProv.rankings.isNotEmpty ? auctionProv.rankings.first.amount : 49250.0;
-    final myBid = auctionProv.myBidAmount(myTransporterId) ?? 49500.0;
+    final lowestBid = auctionProv.rankings.isNotEmpty
+        ? auctionProv.rankings.first.amount
+        : (tender?.ceilingBid ?? 50000.0);
+    final myBid = auctionProv.myBidAmount(myTransporterId) ?? 0.0;
     final myRank = auctionProv.myRank(myTransporterId);
 
     return Scaffold(
@@ -124,7 +126,7 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: _activeStage == 1
-                  ? _buildStage1Content(context, tender, timeStr, lowestBid, myBid, myRank, auctionProv)
+                  ? _buildStage1Content(context, tender, timeStr, lowestBid, myBid, myRank, auctionProv, myTransporterId)
                   : _buildStage2Content(context, tender, timeStr, lowestBid, myBid),
             ),
           ),
@@ -229,6 +231,7 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
     double myBid,
     int myRank,
     AuctionProvider auctionProv,
+    int myTransporterId,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,7 +386,7 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            myRank > 0 ? 'RANK #$myRank' : 'RANK #2',
+                            myRank > 0 ? 'RANK #$myRank' : 'NO BID',
                             style: const TextStyle(color: Color(0xFFB45309), fontSize: 9.5, fontWeight: FontWeight.w900),
                           ),
                         ),
@@ -391,7 +394,7 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '₹${myBid.toInt()}',
+                      myBid > 0 ? '₹${myBid.toInt()}' : '—',
                       style: const TextStyle(
                         color: AppColors.navy,
                         fontSize: 22,
@@ -400,9 +403,13 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
-                      '+₹250 vs L1',
-                      style: TextStyle(color: Color(0xFFD97706), fontSize: 11, fontWeight: FontWeight.w700),
+                    Text(
+                      myRank == 1
+                          ? 'Current L1 Leader'
+                          : (myBid > 0 && myBid > lowestBid
+                              ? '+₹${(myBid - lowestBid).toInt()} vs L1'
+                              : (myBid > 0 ? 'Best Bid' : 'Place your bid')),
+                      style: const TextStyle(color: Color(0xFFD97706), fontSize: 11, fontWeight: FontWeight.w700),
                     ),
                   ],
                 ),
@@ -417,12 +424,12 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.emeraldSuccess, width: 1.5),
                 ),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
+                      children: const [
                         Text(
                           'LOWEST (L1)',
                           style: TextStyle(color: AppColors.slate, fontSize: 10, fontWeight: FontWeight.w800),
@@ -433,20 +440,24 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
                         ),
                       ],
                     ),
-                    SizedBox(height: 6),
+                    const SizedBox(height: 6),
                     Text(
-                      '₹49,250',
-                      style: TextStyle(
+                      auctionProv.rankings.isNotEmpty
+                          ? '₹${auctionProv.rankings.first.amount.toInt()}'
+                          : '₹${tender?.ceilingBid.toInt() ?? 0}',
+                      style: const TextStyle(
                         color: AppColors.emeraldSuccess,
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -0.5,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
-                      'Transporter D',
-                      style: TextStyle(color: AppColors.emeraldSuccess, fontSize: 11, fontWeight: FontWeight.w700),
+                      auctionProv.rankings.isNotEmpty
+                          ? auctionProv.rankings.first.transporterName
+                          : 'Ceiling Price',
+                      style: const TextStyle(color: AppColors.emeraldSuccess, fontSize: 11, fontWeight: FontWeight.w700),
                     ),
                   ],
                 ),
@@ -476,9 +487,9 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: AppColors.borderSubtle),
                 ),
-                child: const Text(
-                  '≤ ₹49,225',
-                  style: TextStyle(color: AppColors.emeraldSuccess, fontWeight: FontWeight.w900, fontSize: 13),
+                child: Text(
+                  '≤ ₹${(lowestBid - (tender?.priceDifference ?? 25)).toInt()}',
+                  style: const TextStyle(color: AppColors.emeraldSuccess, fontWeight: FontWeight.w900, fontSize: 13),
                 ),
               ),
             ],
@@ -498,24 +509,38 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
                 color: const Color(0xFFE2E8F0),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Text(
-                'TOP 5',
-                style: TextStyle(color: AppColors.slate, fontSize: 10, fontWeight: FontWeight.w800),
+              child: Text(
+                'TOP ${auctionProv.rankings.isNotEmpty ? auctionProv.rankings.length : 0}',
+                style: const TextStyle(color: AppColors.slate, fontSize: 10, fontWeight: FontWeight.w800),
               ),
             ),
           ],
         ),
         const SizedBox(height: 8),
 
-        _buildLeaderboardRow(1, 'Transporter D', '₹49,250', isFirst: true),
-        const SizedBox(height: 6),
-        _buildLeaderboardRow(2, 'You (Transporter C)', '₹49,500', isMe: true),
-        const SizedBox(height: 6),
-        _buildLeaderboardRow(3, 'Transporter B', '₹49,750'),
-        const SizedBox(height: 6),
-        _buildLeaderboardRow(4, 'Transporter A', '₹50,000'),
-        const SizedBox(height: 6),
-        _buildLeaderboardRow(5, 'Transporter G', '₹50,100'),
+        if (auctionProv.rankings.isNotEmpty)
+          ...auctionProv.rankings.map(
+            (r) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: _buildLeaderboardRow(
+                r.rank,
+                r.transporterId == myTransporterId ? 'You (${r.transporterName})' : r.transporterName,
+                '₹${r.amount.toInt()}',
+                isFirst: r.rank == 1,
+                isMe: r.transporterId == myTransporterId,
+              ),
+            ),
+          )
+        else
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: Text(
+                'No bids placed yet',
+                style: TextStyle(color: AppColors.slate, fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
         const SizedBox(height: 16),
       ],
     );

@@ -236,7 +236,7 @@ class TenderProvider extends ChangeNotifier {
     required DateTime deliveryEnd,
     required DateTime closingDate,
     required DateTime biddingStart,
-    required softEnd,
+    required DateTime softEnd,
     required DateTime hardStop,
     required List<MaterialItem> materials,
     required List<int> transporterIds,

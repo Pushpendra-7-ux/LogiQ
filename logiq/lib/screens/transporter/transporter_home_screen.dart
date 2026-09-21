@@ -43,8 +43,8 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
     final activeTenders = tenderProv.activeTenders;
 
     final companyName = auth.currentTransporter?.companyName ?? 'Apex Freight';
-    final activeBidsCount = bidProv.activeBids.isNotEmpty ? bidProv.activeBids.length : 4;
-    final wonBidsCount = bidProv.wonBids.isNotEmpty ? bidProv.wonBids.length : 2;
+    final activeBidsCount = bidProv.activeBids.length;
+    final wonBidsCount = bidProv.wonBids.length;
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,

@@ -168,13 +168,23 @@ class _PlaceBidScreenState extends State<PlaceBidScreen> {
     final lowestBid = hasLowest ? auctionProv.rankings.first.amount : null;
     final maxAllowedBid = hasLowest ? lowestBid! - tender.priceDifference : tender.ceilingBid;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Place Your Bid', style: AppTextStyles.h3),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
+      },
+      child: Scaffold(
         backgroundColor: AppColors.background,
-        elevation: 0,
-      ),
+        appBar: AppBar(
+          title: const Text('Place Your Bid', style: AppTextStyles.h3),
+          backgroundColor: AppColors.background,
+          elevation: 0,
+        ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -310,8 +320,9 @@ class _PlaceBidScreenState extends State<PlaceBidScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _SuccessDialog extends StatelessWidget {

@@ -69,51 +69,62 @@ class _TenderDetailTransporterScreenState extends State<TenderDetailTransporterS
       );
     }
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(tender.title, style: AppTextStyles.h3),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
+      },
+      child: Scaffold(
         backgroundColor: AppColors.background,
-        elevation: 0,
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  StatusChip(
-                    label: tender.status.label,
-                    color: _getStatusColor(tender.status),
-                    icon: _getStatusIcon(tender.status),
-                  ),
-                  const SizedBox(height: 16),
-                  RouteDisplay(
-                    pickup: tender.pickup,
-                    drop: tender.drop,
-                    compact: false,
-                  ),
-                  const SizedBox(height: 24),
-                  _buildSectionTitle('Material Information'),
-                  _buildMaterialCard(),
-                  const SizedBox(height: 24),
-                  _buildSectionTitle('Schedule'),
-                  _buildDateCard(tender),
-                  const SizedBox(height: 24),
-                  if (tender.priceDifference > 0) ...[
-                    _buildSectionTitle('Bidding Rules'),
-                    _buildInfoCard(
-                      'Minimum Bid Difference',
-                      '₹${tender.priceDifference.toStringAsFixed(0)}',
-                      Icons.rule,
+        appBar: AppBar(
+          title: Text(tender.title, style: AppTextStyles.h3),
+          backgroundColor: AppColors.background,
+          elevation: 0,
+        ),
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    StatusChip(
+                      label: tender.status.label,
+                      color: _getStatusColor(tender.status),
+                      icon: _getStatusIcon(tender.status),
+                    ),
+                    const SizedBox(height: 16),
+                    RouteDisplay(
+                      pickup: tender.pickup,
+                      drop: tender.drop,
+                      compact: false,
                     ),
                     const SizedBox(height: 24),
+                    _buildSectionTitle('Material Information'),
+                    _buildMaterialCard(),
+                    const SizedBox(height: 24),
+                    _buildSectionTitle('Schedule'),
+                    _buildDateCard(tender),
+                    const SizedBox(height: 24),
+                    if (tender.priceDifference > 0) ...[
+                      _buildSectionTitle('Bidding Rules'),
+                      _buildInfoCard(
+                        'Minimum Bid Difference',
+                        '₹${tender.priceDifference.toStringAsFixed(0)}',
+                        Icons.rule,
+                      ),
+                      const SizedBox(height: 24),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-      bottomNavigationBar: _buildBottomAction(tender, auctionProvider),
+        bottomNavigationBar: _buildBottomAction(tender, auctionProvider),
+      ),
     );
   }
 

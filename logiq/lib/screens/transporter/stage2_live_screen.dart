@@ -117,23 +117,34 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
     final myBid = auctionProv.myBidAmount(myTransporterId) ?? 0.0;
     final myRank = auctionProv.myRank(myTransporterId);
 
-    return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
-      appBar: _buildStitchAppBar(context),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: _activeStage == 1
-                  ? _buildStage1Content(context, tender, timeStr, lowestBid, myBid, myRank, auctionProv, myTransporterId)
-                  : _buildStage2Content(context, tender, timeStr, lowestBid, myBid),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.surfaceCanvas,
+        appBar: _buildStitchAppBar(context),
+        body: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: _activeStage == 1
+                    ? _buildStage1Content(context, tender, timeStr, lowestBid, myBid, myRank, auctionProv, myTransporterId)
+                    : _buildStage2Content(context, tender, timeStr, lowestBid, myBid),
+              ),
             ),
-          ),
-          _activeStage == 1
-              ? _buildStage1BottomTray(context, lowestBid)
-              : _buildStage2BottomTray(context),
-        ],
+            _activeStage == 1
+                ? _buildStage1BottomTray(context, lowestBid)
+                : _buildStage2BottomTray(context),
+          ],
+        ),
       ),
     );
   }

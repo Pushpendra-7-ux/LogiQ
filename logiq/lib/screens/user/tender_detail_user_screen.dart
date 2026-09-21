@@ -59,39 +59,50 @@ class _TenderDetailUserScreenState extends State<TenderDetailUserScreen> {
     final isLive = tender.status == TenderStatus.stage1 || tender.status == TenderStatus.stage2;
     final cargoName = _materials.isNotEmpty ? _materials.first.description : 'Hot Rolled Steel Coils';
 
-    return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
-      body: Stack(
-        children: [
-          SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(context),
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildStatusBadgeRow(tenderRef, isLive),
-                        const SizedBox(height: 12),
-                        _buildRouteLoadCard(tender, cargoName),
-                        const SizedBox(height: 12),
-                        _buildAuctionParamsGrid(tender),
-                        const SizedBox(height: 12),
-                        _buildCarrierInvitesCard(tender, _participantCount),
-                        const SizedBox(height: 12),
-                        _buildComplianceToggleCard(),
-                      ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.surfaceCanvas,
+        body: Stack(
+          children: [
+            SafeArea(
+              child: Column(
+                children: [
+                  _buildHeader(context),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildStatusBadgeRow(tenderRef, isLive),
+                          const SizedBox(height: 12),
+                          _buildRouteLoadCard(tender, cargoName),
+                          const SizedBox(height: 12),
+                          _buildAuctionParamsGrid(tender),
+                          const SizedBox(height: 12),
+                          _buildCarrierInvitesCard(tender, _participantCount),
+                          const SizedBox(height: 12),
+                          _buildComplianceToggleCard(),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          _buildStickyBottomBar(context, tender, isLive),
-        ],
+            _buildStickyBottomBar(context, tender, isLive),
+          ],
+        ),
       ),
     );
   }

@@ -88,36 +88,47 @@ class _DraftsScreenState extends State<DraftsScreen> {
     context.watch<DraftTimerProvider>();
     final drafts = tenderProvider.pendingPublishTenders;
 
-    return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
-        ),
-        title: Text('Draft Tenders', style: AppTextStyles.h2.copyWith(color: AppColors.ink)),
-      ),
-      body: Column(
-        children: [
-          if (_showSuccessBanner) _SuccessBanner(onDismiss: () => setState(() => _showSuccessBanner = false)),
-          Expanded(
-            child: drafts.isEmpty
-                ? _buildEmptyState()
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: drafts.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 16),
-                    itemBuilder: (_, index) => _DraftCard(
-                      draft: drafts[index],
-                      onCancel: () => _cancelDraft(drafts[index]),
-                      onEdit: () => _editDraft(drafts[index]),
-                    ),
-                  ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.surfaceCanvas,
+        appBar: AppBar(
+          backgroundColor: AppColors.white,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppColors.ink),
+            onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
           ),
-        ],
+          title: Text('Draft Tenders', style: AppTextStyles.h2.copyWith(color: AppColors.ink)),
+        ),
+        body: Column(
+          children: [
+            if (_showSuccessBanner) _SuccessBanner(onDismiss: () => setState(() => _showSuccessBanner = false)),
+            Expanded(
+              child: drafts.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: drafts.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 16),
+                      itemBuilder: (_, index) => _DraftCard(
+                        draft: drafts[index],
+                        onCancel: () => _cancelDraft(drafts[index]),
+                        onEdit: () => _editDraft(drafts[index]),
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

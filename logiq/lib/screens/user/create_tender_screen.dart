@@ -269,7 +269,17 @@ class _CreateTenderScreenState extends State<CreateTenderScreen> {
   Widget build(BuildContext context) {
     final isEditing = widget.editingTender != null;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
+      },
+      child: Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Form(
@@ -479,8 +489,9 @@ class _CreateTenderScreenState extends State<CreateTenderScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _sectionHeader(String title) {
     return Padding(

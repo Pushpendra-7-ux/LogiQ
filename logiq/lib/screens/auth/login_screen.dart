@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -50,6 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _signInEmailController = TextEditingController(text: DemoConstants.userDemoEmail);
   final _signInPasswordController = TextEditingController(text: DemoConstants.userDemoPassword);
   bool _obscureSignInPassword = true;
+  DateTime? _lastBackPressTime;
 
   // ── Controllers for User Sign Up (Strictly 5 fields) ──
   final _userSignUpFormKey = GlobalKey<FormState>();
@@ -492,30 +494,61 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 20),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        final now = DateTime.now();
+        if (_lastBackPressTime == null ||
+            now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+          _lastBackPressTime = now;
+          ScaffoldMessenger.of(context).removeCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Press back again to exit',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              backgroundColor: AppColors.navy,
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            ),
+          );
+        } else {
+          SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 20),
 
-                  // Top Role Selector Gate
-                  _buildRoleSelector(),
-                  const SizedBox(height: 18),
+                    _buildRoleSelector(),
+                    const SizedBox(height: 18),
 
-                  // Active Role Authentication Form
-                  _buildActiveRoleView(),
-                  const SizedBox(height: 24),
+                    _buildActiveRoleView(),
+                    const SizedBox(height: 24),
 
-                  _buildComplianceFooter(),
-                ],
+                    _buildComplianceFooter(),
+                  ],
+                ),
               ),
             ),
           ),

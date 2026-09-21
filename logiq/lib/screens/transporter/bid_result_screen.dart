@@ -63,55 +63,66 @@ class _BidResultScreenState extends State<BidResultScreen> {
     final pickupCity = tender?.pickup ?? 'Gwalior';
     final dropCity = tender?.drop ?? 'Raipur';
 
-    return Scaffold(
-      backgroundColor: AppColors.surfaceCanvas,
-      body: Stack(
-        children: [
-          SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(context),
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildStatusRow(tenderRef, isWinner),
-                        const SizedBox(height: 14),
-                        _buildHeroAwardedCard(pickupCity, dropCity, isWinner),
-                        const SizedBox(height: 16),
-                        _buildMetricGrid(winningPrice),
-                        const SizedBox(height: 16),
-                        _buildTripProtocolCard(),
-                        const SizedBox(height: 16),
-                        _buildDispatcherCard(),
-                      ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.surfaceCanvas,
+        body: Stack(
+          children: [
+            SafeArea(
+              child: Column(
+                children: [
+                  _buildHeader(context),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildStatusRow(tenderRef, isWinner),
+                          const SizedBox(height: 14),
+                          _buildHeroAwardedCard(pickupCity, dropCity, isWinner),
+                          const SizedBox(height: 16),
+                          _buildMetricGrid(winningPrice),
+                          const SizedBox(height: 16),
+                          _buildTripProtocolCard(),
+                          const SizedBox(height: 16),
+                          _buildDispatcherCard(),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirectionality: BlastDirectionality.explosive,
-              shouldLoop: false,
-              numberOfParticles: 35,
-              gravity: 0.25,
-              colors: const [
-                AppColors.emeraldSuccess,
-                AppColors.secondary,
-                AppColors.amberSoft,
-                Colors.white,
-              ],
+            Align(
+              alignment: Alignment.topCenter,
+              child: ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirectionality: BlastDirectionality.explosive,
+                shouldLoop: false,
+                numberOfParticles: 35,
+                gravity: 0.25,
+                colors: const [
+                  AppColors.emeraldSuccess,
+                  AppColors.secondary,
+                  AppColors.amberSoft,
+                  Colors.white,
+                ],
+              ),
             ),
-          ),
-          _buildStickyBottomCta(context, isWinner),
-        ],
+            _buildStickyBottomCta(context, isWinner),
+          ],
+        ),
       ),
     );
   }

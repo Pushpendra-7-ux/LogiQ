@@ -104,7 +104,15 @@ class _TransporterSelectionScreenState extends State<TransporterSelectionScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
       appBar: AppBar(
         backgroundColor: AppColors.white,
@@ -426,6 +434,7 @@ class _TransporterSelectionScreenState extends State<TransporterSelectionScreen>
                 ),
               ],
             ),
+      ),
     );
   }
 

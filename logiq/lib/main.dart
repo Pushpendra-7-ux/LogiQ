@@ -12,6 +12,7 @@ import 'package:logiq/providers/navigation_provider.dart';
 import 'package:logiq/providers/draft_timer_provider.dart';
 import 'package:logiq/core/database/database_helper.dart';
 import 'package:logiq/core/database/database_seed.dart';
+import 'package:logiq/core/database/database_factory.dart' as db_init;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,8 @@ void main() async {
     statusBarIconBrightness: Brightness.dark,
     statusBarBrightness: Brightness.light,
   ));
+
+  db_init.initDatabaseFactory();
 
   try {
     final db = await DatabaseHelper.instance.database;

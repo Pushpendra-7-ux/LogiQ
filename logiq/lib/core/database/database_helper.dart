@@ -1,4 +1,4 @@
-import 'package:path/path.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sqflite/sqflite.dart';
 
 import '../constants/app_constants.dart';
@@ -17,7 +17,13 @@ class DatabaseHelper {
   }
 
   Future<Database> _open() async {
-    final path = join(await getDatabasesPath(), AppConstants.dbName);
+    String path;
+    if (kIsWeb) {
+      path = AppConstants.dbName;
+    } else {
+      final dbDir = await getDatabasesPath();
+      path = '$dbDir/${AppConstants.dbName}';
+    }
     return openDatabase(
       path,
       version: AppConstants.dbVersion,
@@ -36,7 +42,6 @@ class DatabaseHelper {
     _db = null;
   }
 
-  /// Development helper — wipes everything so seed runs again.
   Future<void> wipe() async {
     final db = await database;
     await db.transaction((txn) async {

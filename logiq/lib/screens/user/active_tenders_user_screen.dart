@@ -7,8 +7,11 @@ import 'package:logiq/core/theme/app_text_styles.dart';
 import 'package:logiq/providers/auth_provider.dart';
 import 'package:logiq/providers/tender_provider.dart';
 import 'package:logiq/models/tender.dart';
+import 'package:logiq/models/material.dart';
 import 'package:logiq/models/auction.dart';
+import 'package:logiq/models/bid.dart';
 import 'package:logiq/services/auction_service.dart';
+import 'package:intl/intl.dart';
 
 class ActiveTendersUserScreen extends StatefulWidget {
   const ActiveTendersUserScreen({super.key});
@@ -20,15 +23,19 @@ class ActiveTendersUserScreen extends StatefulWidget {
 class _ActiveTendersUserScreenState extends State<ActiveTendersUserScreen> {
   final Map<int, Auction> _auctions = {};
   final Map<int, List<_RankRow>> _rankings = {};
+  final Map<int, List<MaterialItem>> _materials = {};
   bool _isLoading = true;
   Timer? _timer;
   final AuctionService _auctionService = AuctionService.instance;
+  final DateFormat _windowFormat = DateFormat('dd MMM, hh:mm a');
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      if (!mounted) return;
+      await _syncAuctionsAndRankings();
       if (mounted) setState(() {});
     });
   }
@@ -51,36 +58,76 @@ class _ActiveTendersUserScreenState extends State<ActiveTendersUserScreen> {
 
     try {
       await tenderProvider.loadTendersForUser(userId);
-      final activeTenders = tenderProvider.activeTenders;
-
-      for (final tender in activeTenders) {
-        if (tender.id == null) continue;
-        try {
-          final auction = await _auctionService.getAuctionByTenderId(tender.id!);
-          if (auction != null) {
-            _auctions[tender.id!] = auction;
-            final stage = auction.status == AuctionStatus.stage2Live ? 2 : 1;
-            final bids = await _auctionService.getValidStageBids(auction.id!, stage);
-            final names = await _auctionService.getCompanyNames(
-              bids.map((b) => b.transporterId).toSet().toList(),
-            );
-            final rankRows = <_RankRow>[];
-            for (var i = 0; i < bids.length && i < 5; i++) {
-              final bid = bids[i];
-              final isBlind = auction.status == AuctionStatus.stage2Live;
-              rankRows.add(_RankRow(
-                rank: i + 1,
-                name: isBlind ? 'Bidder ${i + 1}' : (names[bid.transporterId] ?? 'Carrier ${bid.transporterId}'),
-                amount: bid.amount,
-                transporterId: bid.transporterId,
-              ));
-            }
-            _rankings[tender.id!] = rankRows;
-          }
-        } catch (_) {}
-      }
-    } catch (_) {} finally {
+      await _syncAuctionsAndRankings();
+    } catch (_) {
+    } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _syncAuctionsAndRankings() async {
+    final tenderProvider = context.read<TenderProvider>();
+    final auth = context.read<AuthProvider>();
+    final userId = auth.currentUser?.id;
+    if (userId != null) {
+      await tenderProvider.checkAutoPublish(userId);
+      await tenderProvider.loadTendersForUser(userId, silent: true);
+    }
+    final activeTenders = tenderProvider.activeTenders;
+
+    for (final tender in activeTenders) {
+      if (tender.id == null) continue;
+      try {
+        _materials[tender.id!] = await tenderProvider.materialsFor(tender.id!);
+        await _auctionService.checkAndTransitionAuction(tender.id!);
+        var auction = await _auctionService.getAuctionByTenderId(tender.id!);
+        if (auction == null) {
+          final now = DateTime.now();
+          final effectiveStart = tender.biddingStart;
+          final effectiveEnd = tender.softEnd;
+          final isFuture = effectiveStart.isAfter(now);
+          final newAuction = Auction(
+            tenderId: tender.id!,
+            currentStage: 1,
+            stage1Start: effectiveStart,
+            stage1End: effectiveEnd,
+            stage2Start: effectiveEnd,
+            stage2End: effectiveEnd.add(const Duration(minutes: 5)),
+            status: isFuture ? AuctionStatus.scheduled : AuctionStatus.stage1Live,
+          );
+          await _auctionService.saveAuction(newAuction);
+          auction = await _auctionService.getAuctionByTenderId(tender.id!);
+        }
+
+        if (auction != null && auction.id != null) {
+          _auctions[tender.id!] = auction;
+          final stage = auction.status == AuctionStatus.stage2Live ? 2 : 1;
+          final bids = await _auctionService.getValidStageBids(auction.id!, stage);
+
+          final seen = <int>{};
+          final uniqueBids = <Bid>[];
+          for (final b in bids) {
+            if (seen.add(b.transporterId)) {
+              uniqueBids.add(b);
+            }
+          }
+          final names = await _auctionService.getCompanyNames(
+            uniqueBids.map((b) => b.transporterId).toList(),
+          );
+          final rankRows = <_RankRow>[];
+          for (var i = 0; i < uniqueBids.length && i < 5; i++) {
+            final bid = uniqueBids[i];
+            final isBlind = auction.status == AuctionStatus.stage2Live;
+            rankRows.add(_RankRow(
+              rank: i + 1,
+              name: isBlind ? 'Bidder ${i + 1}' : (names[bid.transporterId] ?? 'Carrier ${bid.transporterId}'),
+              amount: bid.amount,
+              transporterId: bid.transporterId,
+            ));
+          }
+          _rankings[tender.id!] = rankRows;
+        }
+      } catch (_) {}
     }
   }
 
@@ -101,6 +148,16 @@ class _ActiveTendersUserScreenState extends State<ActiveTendersUserScreen> {
     final now = DateTime.now();
     final diff = endTime.difference(now);
     if (diff.isNegative) return "00:00";
+    if (diff.inDays >= 1) {
+      final d = diff.inDays;
+      final h = diff.inHours % 24;
+      return h > 0 ? '${d}d ${h}h' : '${d}d';
+    }
+    if (diff.inHours >= 1) {
+      final h = diff.inHours;
+      final m = diff.inMinutes % 60;
+      return m > 0 ? '${h}h ${m}m' : '${h}h';
+    }
     final minutes = diff.inMinutes.toString().padLeft(2, '0');
     final seconds = (diff.inSeconds % 60).toString().padLeft(2, '0');
     return "$minutes:$seconds";
@@ -263,21 +320,28 @@ class _ActiveTendersUserScreenState extends State<ActiveTendersUserScreen> {
         final tender = activeTenders[index];
         final auction = _auctions[tender.id];
         final rankings = _rankings[tender.id] ?? [];
-
-        return _buildTenderCard(tender, auction, rankings);
+        final mats = _materials[tender.id] ?? [];
+        return _buildTenderCard(tender, auction, rankings, mats);
       },
     );
   }
 
-  Widget _buildTenderCard(Tender tender, Auction? auction, List<_RankRow> rankings) {
-    if (auction == null) {
-      return const SizedBox.shrink();
-    }
-
-    final isRound1Live = auction.status == AuctionStatus.stage1Live;
-    final isRound1Ended = auction.status == AuctionStatus.stage1Completed;
-    final isRound2Live = auction.status == AuctionStatus.stage2Live;
-    final isCompleted = auction.status == AuctionStatus.completed;
+  Widget _buildTenderCard(
+    Tender tender,
+    Auction? auction,
+    List<_RankRow> rankings,
+    List<MaterialItem> materials,
+  ) {
+    final now = DateTime.now();
+    final effectiveStage1Start = auction?.stage1Start ?? tender.biddingStart;
+    final effectiveStage1End = auction?.stage1End ?? tender.softEnd;
+    final effectiveStage2End = auction?.stage2End ?? tender.hardStop;
+    final isScheduled = (auction?.status == AuctionStatus.scheduled || tender.status == TenderStatus.scheduled) && now.isBefore(effectiveStage1Start);
+    final isPastStage1End = now.isAfter(effectiveStage1End);
+    final isRound1Live = !isScheduled && (auction == null || auction.status == AuctionStatus.stage1Live) && !isPastStage1End;
+    final isRound1Ended = !isScheduled && ((auction != null && auction.status == AuctionStatus.stage1Completed) || isPastStage1End);
+    final isRound2Live = auction?.status == AuctionStatus.stage2Live;
+    final isCompleted = auction?.status == AuctionStatus.completed || tender.status == TenderStatus.completed;
 
     final hasBids = rankings.isNotEmpty;
     final lowestBid = hasBids ? rankings.first.amount : null;
@@ -311,7 +375,9 @@ class _ActiveTendersUserScreenState extends State<ActiveTendersUserScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                if (isRound1Live)
+                if (isScheduled)
+                  _buildStageChip('SCHEDULED • ROUND 1', Colors.blue.shade700, Colors.blue.shade50, Colors.blue.shade200)
+                else if (isRound1Live)
                   _buildStageChip('STAGE 1 • LIVE AUCTION', AppColors.logiqGreen, AppColors.logiqGreenBg, AppColors.logiqGreenBorder)
                 else if (isRound2Live)
                   _buildStageChip('STAGE 2 • BLIND AUCTION', Colors.deepPurple, Colors.deepPurple.shade50, Colors.deepPurple.shade200)
@@ -319,25 +385,64 @@ class _ActiveTendersUserScreenState extends State<ActiveTendersUserScreen> {
                   _buildStageChip('STAGE 1 COMPLETED', Colors.orange.shade800, Colors.orange.shade50, Colors.orange.shade200)
                 else if (isCompleted)
                   _buildStageChip('AUCTION COMPLETED', AppColors.logiqGreen, AppColors.logiqGreenBg, AppColors.logiqGreenBorder),
-                if (isRound1Live || isRound2Live)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.outline),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.timer_outlined, size: 14, color: AppColors.ink),
-                        const SizedBox(width: 4),
-                        Text(
-                          _formatTimeRemaining(isRound1Live ? auction.stage1End : auction.stage2End),
-                          style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink, fontSize: 13),
-                        ),
-                      ],
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isScheduled
+                          ? Colors.blue.shade200
+                          : isRound1Ended
+                              ? Colors.orange.shade300
+                              : isRound2Live
+                                  ? Colors.deepPurple.shade200
+                                  : AppColors.outline,
                     ),
                   ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isScheduled
+                            ? Icons.schedule
+                            : isRound2Live
+                                ? Icons.visibility_off_outlined
+                                : Icons.timer_outlined,
+                        size: 14,
+                        color: isScheduled
+                            ? Colors.blue.shade800
+                            : isRound1Ended
+                                ? Colors.orange.shade800
+                                : isRound2Live
+                                    ? Colors.deepPurple
+                                    : AppColors.ink,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isScheduled
+                            ? 'Starts ${_formatTimeRemaining(effectiveStage1Start)}'
+                            : isRound1Live
+                                ? _formatTimeRemaining(effectiveStage1End)
+                                : isRound2Live
+                                    ? _formatTimeRemaining(effectiveStage2End)
+                                    : isRound1Ended
+                                        ? '00:00 • Time Up'
+                                        : 'Closed',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: isScheduled
+                              ? Colors.blue.shade900
+                              : isRound1Ended
+                                  ? Colors.orange.shade900
+                                  : isRound2Live
+                                      ? Colors.deepPurple
+                                      : AppColors.ink,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -346,7 +451,27 @@ class _ActiveTendersUserScreenState extends State<ActiveTendersUserScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(tender.title, style: AppTextStyles.h3),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(tender.title, style: AppTextStyles.h3),
+                    ),
+                    if (tender.id != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceCanvas,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.outline),
+                        ),
+                        child: Text(
+                          '#TND-${tender.id}',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.inkSoft),
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 10),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -381,12 +506,54 @@ class _ActiveTendersUserScreenState extends State<ActiveTendersUserScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                Row(
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: isScheduled ? Colors.blue.shade50 : AppColors.surfaceCanvas,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: isScheduled ? Colors.blue.shade200 : AppColors.outline),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isScheduled ? Icons.schedule : Icons.timer_outlined,
+                        size: 13,
+                        color: isScheduled ? Colors.blue.shade800 : AppColors.logiqGreen,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          isScheduled
+                              ? 'Scheduled: ${_windowFormat.format(effectiveStage1Start)} – ${_windowFormat.format(effectiveStage1End)}'
+                              : 'Bidding Window: ${_windowFormat.format(effectiveStage1Start)} – ${_windowFormat.format(effectiveStage1End)}',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: isScheduled ? Colors.blue.shade900 : AppColors.ink,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     _buildInfoBadge(Icons.local_shipping_outlined, tender.vehicleType),
-                    const SizedBox(width: 8),
-                    _buildInfoBadge(Icons.calendar_today_outlined, '${tender.deliveryStart.day}/${tender.deliveryStart.month} - ${tender.deliveryEnd.day}/${tender.deliveryEnd.month}'),
+                    _buildInfoBadge(
+                      Icons.calendar_today_outlined,
+                      '${tender.deliveryStart.day}/${tender.deliveryStart.month} - ${tender.deliveryEnd.day}/${tender.deliveryEnd.month}',
+                    ),
+                    if (materials.isNotEmpty)
+                      _buildInfoBadge(
+                        Icons.inventory_2_outlined,
+                        '${materials.first.quantity.toInt()} ${materials.first.unit} • ${materials.first.description}',
+                      ),
+                    if (tender.remarks.isNotEmpty)
+                      _buildInfoBadge(Icons.notes_outlined, tender.remarks),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -404,7 +571,7 @@ class _ActiveTendersUserScreenState extends State<ActiveTendersUserScreen> {
                     Expanded(
                       child: _buildMetricBox(
                         'Current L1',
-                        hasBids ? _formatCurrency(lowestBid!) : 'No bids',
+                        hasBids ? _formatCurrency(lowestBid!) : (isScheduled ? 'Scheduled' : 'Waiting for bids'),
                         hasBids ? AppColors.logiqGreen : AppColors.inkSoft,
                         hasBids ? AppColors.logiqGreen : AppColors.inkSoft,
                         highlight: hasBids,
@@ -422,29 +589,48 @@ class _ActiveTendersUserScreenState extends State<ActiveTendersUserScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                if (isRound1Live || isRound2Live) ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.leaderboard_outlined, size: 14, color: AppColors.inkSoft),
-                          SizedBox(width: 6),
-                          Text(
-                            'LIVE LEADERBOARD',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.inkSoft, letterSpacing: 0.5),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          isRound2Live ? Icons.visibility_off_outlined : Icons.leaderboard_outlined,
+                          size: 14,
+                          color: isRound2Live ? Colors.deepPurple : AppColors.inkSoft,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isRound2Live
+                              ? 'ROUND 2 SEALED BIDS'
+                              : isRound1Ended
+                                  ? 'QUALIFYING LEADERBOARD (L1–L5)'
+                                  : 'LIVE LEADERBOARD (L1–L5)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: isRound2Live ? Colors.deepPurple : AppColors.inkSoft,
+                            letterSpacing: 0.5,
                           ),
-                        ],
-                      ),
-                      Text(
-                        'Min decr: ₹${tender.priceDifference.toInt()}',
-                        style: const TextStyle(fontSize: 11, color: AppColors.inkSoft, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  _buildRankingsList(rankings, isRound2Live, tender.ceilingBid),
-                ] else if (isRound1Ended) ...[
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'Min decr: ₹${tender.priceDifference.toInt()}',
+                      style: const TextStyle(fontSize: 11, color: AppColors.inkSoft, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _buildRankingsList(
+                  rankings,
+                  isRound2Live,
+                  tender.ceilingBid,
+                  isScheduled: isScheduled,
+                  scheduledStart: effectiveStage1Start,
+                ),
+                if (isRound1Ended && !isRound2Live && !isCompleted) ...[
+                  const SizedBox(height: 14),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -458,26 +644,35 @@ class _ActiveTendersUserScreenState extends State<ActiveTendersUserScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Stage 1 ended. Top qualifying carriers will now submit blind sealed bids in Stage 2.',
-                            style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.w500),
+                            'Stage 1 ended. Top qualifying carriers (L1–L5) above are locked. Proceed to Round 2 Blind Auction.',
+                            style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.w600),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Stage 2 Blind Auction starting...'),
-                            backgroundColor: AppColors.logiqGreen,
-                          ),
+                        final auth = context.read<AuthProvider>();
+                        final userId = auth.currentUser?.id;
+                        if (userId == null) return;
+                        final success = await context.read<TenderProvider>().startRound2BlindAuction(
+                          tenderId: tender.id!,
+                          userId: userId,
                         );
-                        _loadData();
+                        if (success && mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Stage 2 Blind Auction is now LIVE!'),
+                              backgroundColor: AppColors.logiqGreen,
+                            ),
+                          );
+                          await _loadData();
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.logiqGreen,
@@ -486,10 +681,36 @@ class _ActiveTendersUserScreenState extends State<ActiveTendersUserScreen> {
                         elevation: 0,
                       ),
                       icon: const Icon(Icons.visibility_off, size: 18),
-                      label: const Text('Start Stage 2 Blind Auction', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      label: const Text(
+                        'GO FOR ROUND 2 BLIND AUCTION',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5),
+                      ),
+                    ),
+                  ),
+                ] else if (isRound2Live) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.deepPurple.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.deepPurple.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.lock_outline, color: Colors.deepPurple.shade700, size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Round 2 Blind Auction in progress. Carrier names and bids are sealed until auction close.',
+                            style: TextStyle(fontSize: 12, color: Colors.deepPurple.shade900, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ] else if (isCompleted) ...[
+                  const SizedBox(height: 14),
                   if (hasBids)
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -590,22 +811,35 @@ class _ActiveTendersUserScreenState extends State<ActiveTendersUserScreen> {
     );
   }
 
-  Widget _buildRankingsList(List<_RankRow> rankings, bool isAnonymous, double ceilingBid) {
+  Widget _buildRankingsList(
+    List<_RankRow> rankings,
+    bool isAnonymous,
+    double ceilingBid, {
+    bool isScheduled = false,
+    DateTime? scheduledStart,
+  }) {
     if (rankings.isEmpty) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 20),
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
         decoration: BoxDecoration(
           color: AppColors.surfaceCanvas,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: AppColors.outline),
         ),
-        child: const Column(
+        child: Column(
           children: [
-            Icon(Icons.hourglass_empty_rounded, size: 24, color: AppColors.inkSoft),
-            SizedBox(height: 6),
-            Text('No bids submitted yet', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.inkSoft)),
-            Text('Carriers will bid below the ceiling cap.', style: TextStyle(fontSize: 11, color: AppColors.inkFaint)),
+            Icon(isScheduled ? Icons.schedule : Icons.hourglass_empty_rounded, size: 28, color: AppColors.inkSoft),
+            const SizedBox(height: 8),
+            Text(isScheduled ? 'Bidding Scheduled' : 'Waiting for Carrier Bids', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.ink)),
+            const SizedBox(height: 4),
+            Text(
+              isScheduled && scheduledStart != null
+                  ? 'Bidding will open at ${scheduledStart.hour.toString().padLeft(2, '0')}:${scheduledStart.minute.toString().padLeft(2, '0')} below the cap of ₹${ceilingBid.toInt()}.'
+                  : 'Participating carriers will start bidding below the cap of ₹${ceilingBid.toInt()}.',
+              style: const TextStyle(fontSize: 12, color: AppColors.inkFaint),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       );

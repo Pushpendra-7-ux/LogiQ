@@ -5,16 +5,12 @@ import '../../core/database/database_tables.dart';
 import '../../models/material.dart';
 import '../../models/tender.dart';
 
-/// Local (SQLite) access to tenders, materials and participants.
-/// REPLACE WITH: ApiTenderService (Dio) when company REST APIs arrive.
 class LocalTenderDataSource {
   LocalTenderDataSource._();
   static final LocalTenderDataSource instance = LocalTenderDataSource._();
 
   Future<Database> get _db => DatabaseHelper.instance.database;
 
-  /// Inserts tender + materials + participants in one transaction.
-  /// Pass [auction] map to create the paired auction row on publish.
   Future<int> insert({
     required Tender tender,
     required List<MaterialItem> materials,
@@ -72,6 +68,29 @@ class LocalTenderDataSource {
         where: 'id = ?', whereArgs: [tenderId]);
   }
 
+  Future<void> updateStatusAndSchedule({
+    required int tenderId,
+    required TenderStatus status,
+    required DateTime biddingStart,
+    required DateTime softEnd,
+    required DateTime hardStop,
+  }) async {
+    final db = await _db;
+    await db.update(
+      DatabaseTables.tenders,
+      {
+        'status': status.value,
+        'bidding_start': biddingStart.toIso8601String(),
+        'soft_end': softEnd.toIso8601String(),
+        'hard_stop': hardStop.toIso8601String(),
+        'closing_date': softEnd.toIso8601String(),
+        'publish_at': null,
+      },
+      where: 'id = ?',
+      whereArgs: [tenderId],
+    );
+  }
+
   Future<void> deleteDraft(int tenderId) async {
     final db = await _db;
     await db.transaction((txn) async {
@@ -110,10 +129,11 @@ class LocalTenderDataSource {
     final db = await _db;
     final rows = await db.rawQuery(
         'SELECT DISTINCT t.* FROM ${DatabaseTables.tenders} t '
-        'JOIN ${DatabaseTables.tenderParticipants} p ON p.tender_id = t.id '
-        'WHERE p.transporter_id = ? AND t.status != ? '
+        'LEFT JOIN ${DatabaseTables.tenderParticipants} p ON p.tender_id = t.id '
+        'LEFT JOIN ${DatabaseTables.transporters} tr ON (tr.id = p.transporter_id OR tr.user_id = p.transporter_id) '
+        'WHERE (p.transporter_id = ? OR tr.id = ? OR tr.user_id = ? OR t.status IN (?, ?)) AND t.status NOT IN (?, ?) '
         'ORDER BY t.id DESC',
-        [transporterId, TenderStatus.draft.value]);
+        [transporterId, transporterId, transporterId, TenderStatus.stage1.value, TenderStatus.stage2.value, TenderStatus.draft.value, TenderStatus.pendingPublish.value]);
     return rows.map(Tender.fromMap).toList();
   }
 

@@ -134,12 +134,15 @@ GoRouter buildRouter(BuildContext context) {
           ),
           GoRoute(
             path: '/admin/tenders',
-            pageBuilder: (context, state) => CustomTransitionPage(
-              key: state.pageKey,
-              child: const AdminTendersScreen(),
-              transitionDuration: RouteTransitions.durationFast,
-              transitionsBuilder: RouteTransitions.fadeScale,
-            ),
+            pageBuilder: (context, state) {
+              final initialFilter = state.extra as String?;
+              return CustomTransitionPage(
+                key: state.pageKey,
+                child: AdminTendersScreen(initialFilter: initialFilter),
+                transitionDuration: RouteTransitions.durationFast,
+                transitionsBuilder: RouteTransitions.fadeScale,
+              );
+            },
           ),
           GoRoute(
             path: '/admin/approvals',

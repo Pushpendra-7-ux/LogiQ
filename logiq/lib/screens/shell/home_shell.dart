@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:logiq/providers/auth_provider.dart';
+import 'package:logiq/providers/tender_provider.dart';
 import 'package:logiq/core/theme/app_colors.dart';
 
 class HomeShell extends StatefulWidget {
@@ -16,6 +18,26 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   DateTime? _lastBackPressTime;
+  Timer? _autoTicker;
+
+  @override
+  void initState() {
+    super.initState();
+    _autoTicker = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted) return;
+      final auth = context.read<AuthProvider>();
+      final user = auth.currentUser;
+      final role = user?.role;
+      final tid = auth.currentTransporter?.id ?? user?.id;
+      context.read<TenderProvider>().checkAutoPublish(user?.id, role, tid);
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoTicker?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

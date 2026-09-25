@@ -56,7 +56,7 @@ class AuthProvider extends ChangeNotifier {
 
         if (user.role == AppUser.roleTransporter && user.id != null) {
           currentTransporter =
-              await _authService.getTransporterProfile(user.id!);
+              await _authService.ensureTransporterProfile(user);
         }
 
         return true;
@@ -117,7 +117,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Backwards compatible alias
   Future<bool> registerShipper({
     required String name,
     required String email,

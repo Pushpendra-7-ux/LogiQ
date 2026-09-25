@@ -10,6 +10,7 @@ import 'package:logiq/providers/navigation_provider.dart';
 import 'package:logiq/providers/auction_provider.dart';
 import 'package:logiq/providers/bid_provider.dart';
 import 'package:logiq/providers/admin_provider.dart';
+import 'package:logiq/providers/draft_timer_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => AuctionProvider()),
         ChangeNotifierProvider(create: (_) => BidProvider()),
         ChangeNotifierProvider(create: (_) => AdminProvider()),
+        ChangeNotifierProvider(create: (_) => DraftTimerProvider()),
       ],
       child: MaterialApp(
         theme: buildAppTheme(),
@@ -33,32 +35,33 @@ void main() {
     );
   }
 
-  testWidgets('CreateTenderScreen renders initial wizard step with Stitch branding', (WidgetTester tester) async {
+  testWidgets('CreateTenderScreen renders form with bidding duration and rules', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(createTestWidget());
     await tester.pumpAndSettle();
 
-    expect(find.text('LOGIQ Reverse Auction'), findsOneWidget);
-    expect(find.text('TND-2024-0982'), findsOneWidget);
-    expect(find.text('Continue to Review'), findsOneWidget);
-    expect(find.text('Save Draft'), findsOneWidget);
-  });
+    expect(find.text('Create Tender'), findsWidgets);
+    expect(find.text('Spot reverse auction'), findsOneWidget);
+    expect(find.text('ROUTE & SCHEDULE'), findsOneWidget);
+    expect(find.text('MATERIAL & WEIGHT'), findsOneWidget);
+    expect(find.text('PRICING CAP & BID RULES'), findsOneWidget);
+    expect(find.text('STARTING DATE & TIME'), findsOneWidget);
+    expect(find.text('Now (Immediate)'), findsOneWidget);
+    expect(find.text('Schedule Date/Time'), findsOneWidget);
+    expect(find.text('ENDING DATE & TIME'), findsOneWidget);
+    expect(find.text('Closes At'), findsOneWidget);
+    expect(find.text('Pick Date/Time'), findsOneWidget);
 
-  testWidgets('CreateTenderScreen navigation between wizard and review steps', (WidgetTester tester) async {
-    await tester.pumpWidget(createTestWidget());
+    await tester.tap(find.text('Schedule Date/Time'));
     await tester.pumpAndSettle();
+    expect(find.text('SCHEDULED'), findsOneWidget);
 
-    // Tap Continue to Review to navigate to Step 4 Review & Publish
-    await tester.tap(find.text('Continue to Review'));
+    await tester.tap(find.text('Now (Immediate)'));
     await tester.pumpAndSettle();
-
-    expect(find.text('Review & Publish Tender'), findsOneWidget);
-    expect(find.text('PUBLISH TENDER'), findsOneWidget);
-    expect(find.text('Edit'), findsOneWidget);
-
-    // Tap Edit to navigate back to wizard
-    await tester.tap(find.text('Edit'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('LOGIQ Reverse Auction'), findsOneWidget);
+    expect(find.text('STARTS NOW'), findsOneWidget);
   });
 }

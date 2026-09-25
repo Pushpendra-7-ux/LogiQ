@@ -7,6 +7,7 @@ import 'package:logiq/core/theme/app_colors.dart';
 import 'package:logiq/core/theme/app_text_styles.dart';
 import 'package:logiq/providers/auth_provider.dart';
 import 'package:logiq/providers/tender_provider.dart';
+import 'package:logiq/providers/draft_timer_provider.dart';
 import 'package:logiq/models/material.dart';
 import 'package:logiq/models/tender.dart';
 import 'package:logiq/data/mock/hsn_data.dart';
@@ -48,9 +49,190 @@ class _CreateTenderScreenState extends State<CreateTenderScreen> {
     'Other': 'Specialized vehicles',
   };
 
+  bool _startNow = true;
+  DateTime _biddingStartDate = DateTime.now();
+  TimeOfDay _biddingStartTime = TimeOfDay.now();
+  late DateTime _biddingEndDate;
+  late TimeOfDay _biddingEndTime;
+  final _dateTimeFormat = DateFormat('EEE, dd MMM yyyy, hh:mm a');
+  final _timeFormat = DateFormat('hh:mm a');
+
+  String _formatDurationDiff(Duration d) {
+    if (d.inDays >= 1) {
+      final days = d.inDays;
+      final hours = d.inHours % 24;
+      return hours > 0 ? '$days d $hours h' : '$days ${days == 1 ? "Day" : "Days"}';
+    }
+    if (d.inHours >= 1) {
+      final h = d.inHours;
+      final m = d.inMinutes % 60;
+      return m > 0 ? '$h h $m m' : '$h ${h == 1 ? "Hour" : "Hours"}';
+    }
+    return '${d.inMinutes} Mins';
+  }
+
+  void _toggleStartNow(bool nowVal) {
+    setState(() {
+      _startNow = nowVal;
+      final current = DateTime.now();
+      if (nowVal) {
+        _biddingStartDate = current;
+        _biddingStartTime = TimeOfDay.fromDateTime(current);
+        if (_biddingEndDate.isBefore(current) || _biddingEndDate.isAtSameMomentAs(current)) {
+          final newEnd = current.add(const Duration(hours: 2));
+          _biddingEndDate = newEnd;
+          _biddingEndTime = TimeOfDay.fromDateTime(newEnd);
+        }
+      } else {
+        if (_biddingStartDate.isBefore(current) || _biddingStartDate.isAtSameMomentAs(current)) {
+          final scheduledStart = current.add(const Duration(minutes: 15));
+          _biddingStartDate = scheduledStart;
+          _biddingStartTime = TimeOfDay.fromDateTime(scheduledStart);
+          final newEnd = scheduledStart.add(const Duration(hours: 2));
+          _biddingEndDate = newEnd;
+          _biddingEndTime = TimeOfDay.fromDateTime(newEnd);
+        }
+      }
+    });
+  }
+
+  void _onScheduleTap() {
+    if (!_startNow) {
+      _pickBiddingStart();
+    } else {
+      _toggleStartNow(false);
+    }
+  }
+
+  Future<void> _pickBiddingStart() async {
+    final now = DateTime.now();
+    final initialDate = _biddingStartDate.isBefore(now) ? now : _biddingStartDate;
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.logiqGreen,
+            onPrimary: AppColors.white,
+            onSurface: AppColors.ink,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (pickedDate == null) return;
+
+    if (!mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: _biddingStartTime,
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.logiqGreen,
+            onPrimary: AppColors.white,
+            onSurface: AppColors.ink,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (pickedTime == null) return;
+
+    final combinedStart = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+
+    if (combinedStart.isBefore(now.subtract(const Duration(minutes: 1)))) {
+      _showError('Start time cannot be in the past');
+      return;
+    }
+
+    setState(() {
+      _startNow = false;
+      _biddingStartDate = combinedStart;
+      _biddingStartTime = pickedTime;
+      if (_biddingEndDate.isBefore(combinedStart) || _biddingEndDate.isAtSameMomentAs(combinedStart)) {
+        final newEnd = combinedStart.add(const Duration(hours: 2));
+        _biddingEndDate = newEnd;
+        _biddingEndTime = TimeOfDay.fromDateTime(newEnd);
+      }
+    });
+  }
+
+  Future<void> _pickBiddingEnd() async {
+    final currentStart = _startNow ? DateTime.now() : _biddingStartDate;
+    final initialDate = _biddingEndDate.isBefore(currentStart) ? currentStart : _biddingEndDate;
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: currentStart,
+      lastDate: currentStart.add(const Duration(days: 365)),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.logiqGreen,
+            onPrimary: AppColors.white,
+            onSurface: AppColors.ink,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (pickedDate == null) return;
+
+    if (!mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: _biddingEndTime,
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.logiqGreen,
+            onPrimary: AppColors.white,
+            onSurface: AppColors.ink,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (pickedTime == null) return;
+
+    final combinedEnd = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+
+    if (combinedEnd.isBefore(currentStart) || combinedEnd.isAtSameMomentAs(currentStart)) {
+      _showError('Ending date and time must be after starting date and time');
+      return;
+    }
+
+    setState(() {
+      _biddingEndDate = combinedEnd;
+      _biddingEndTime = pickedTime;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _biddingStartDate = now;
+    _biddingStartTime = TimeOfDay.fromDateTime(now);
+    final initialEnd = now.add(const Duration(hours: 2));
+    _biddingEndDate = initialEnd;
+    _biddingEndTime = TimeOfDay.fromDateTime(initialEnd);
     _initFromEditingTender();
   }
 
@@ -73,6 +255,13 @@ class _CreateTenderScreenState extends State<CreateTenderScreen> {
       _minDecrementController.text = t.minDecrement.toInt().toString();
       _remarksController.text = t.remarks;
       _selectedVehicleType = t.vehicleType;
+
+      final now = DateTime.now();
+      _biddingStartDate = t.biddingStart;
+      _biddingStartTime = TimeOfDay.fromDateTime(t.biddingStart);
+      _biddingEndDate = t.softEnd;
+      _biddingEndTime = TimeOfDay.fromDateTime(t.softEnd);
+      _startNow = t.biddingStart.isBefore(now) || t.status == TenderStatus.stage1;
 
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted || t.id == null) return;
@@ -186,6 +375,19 @@ class _CreateTenderScreenState extends State<CreateTenderScreen> {
 
       final pickupCity = _pickupController.text.split(',').first.trim();
       final dropCity = _dropController.text.split(',').first.trim();
+      final now = DateTime.now();
+      final effectiveStart = _startNow ? now : _biddingStartDate;
+      final effectiveEnd = _biddingEndDate.isAfter(effectiveStart)
+          ? _biddingEndDate
+          : effectiveStart.add(const Duration(hours: 2));
+
+      if (!_startNow && effectiveStart.isBefore(now.subtract(const Duration(minutes: 2)))) {
+        return _showError('Start time for scheduled auction cannot be in the past');
+      }
+
+      if (effectiveEnd.isBefore(effectiveStart) || effectiveEnd.isAtSameMomentAs(effectiveStart)) {
+        return _showError('Ending date and time must be after starting date and time');
+      }
 
       if (widget.editingTender != null) {
         final updatedTender = widget.editingTender!.copyWith(
@@ -194,6 +396,10 @@ class _CreateTenderScreenState extends State<CreateTenderScreen> {
           drop: _dropController.text.trim(),
           deliveryStart: _pickupDate!,
           deliveryEnd: _dropDate!,
+          biddingStart: effectiveStart,
+          softEnd: effectiveEnd,
+          hardStop: effectiveEnd.add(const Duration(minutes: 5)),
+          closingDate: effectiveEnd,
           ceilingBid: ceilingBid,
           minDecrement: minDecrement,
           remarks: _remarksController.text.trim(),
@@ -210,14 +416,14 @@ class _CreateTenderScreenState extends State<CreateTenderScreen> {
         if (success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Draft updated successfully'),
+              content: Text('Tender updated successfully'),
               backgroundColor: AppColors.logiqGreen,
             ),
           );
           if (context.canPop()) {
             context.pop();
           } else {
-            context.go('/drafts');
+            context.go('/active-tenders');
           }
         }
       } else {
@@ -234,9 +440,25 @@ class _CreateTenderScreenState extends State<CreateTenderScreen> {
           createdBy: userId,
           remarks: _remarksController.text.trim(),
           vehicleType: _selectedVehicleType ?? 'Truck',
+          biddingStart: effectiveStart,
+          biddingEnd: effectiveEnd,
+          startNow: _startNow,
+          biddingDuration: effectiveEnd.difference(effectiveStart),
         );
 
-        if (result != null && mounted) context.go('/drafts');
+        if (result != null && mounted) {
+          final publishAt = DateTime.now().add(const Duration(minutes: 3));
+          try {
+            context.read<DraftTimerProvider>().registerDraft(result, publishAt);
+          } catch (_) {}
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Tender saved to Drafts (3-min review window)'),
+              backgroundColor: AppColors.logiqGreen,
+            ),
+          );
+          context.go('/drafts');
+        }
       }
     } catch (e) {
       _showError('Failed to save tender: $e');
@@ -440,6 +662,9 @@ class _CreateTenderScreenState extends State<CreateTenderScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text('Transporters bid downwards from the ceiling in reverse auction.', style: AppTextStyles.caption.copyWith(color: AppColors.inkSoft)),
+
+                      _sectionHeader('BIDDING SCHEDULE & TIMING (ROUND 1)'),
+                      _biddingTimingSection(),
 
                       _sectionHeader('REMARKS'),
                       TextFormField(
@@ -698,6 +923,319 @@ class _CreateTenderScreenState extends State<CreateTenderScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _biddingTimingSection() {
+    final now = DateTime.now();
+    final effectiveStart = _startNow ? now : _biddingStartDate;
+    final effectiveEnd = _biddingEndDate.isAfter(effectiveStart)
+        ? _biddingEndDate
+        : effectiveStart.add(const Duration(hours: 2));
+    final totalDiff = effectiveEnd.difference(effectiveStart);
+    final durationLabel = _formatDurationDiff(totalDiff);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.timer_outlined, color: AppColors.logiqGreen, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Round 1 Bidding Window',
+                style: AppTextStyles.labelBold.copyWith(color: AppColors.ink),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.logiqGreenBg,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.logiqGreenBorder),
+                ),
+                child: Text(
+                  _startNow ? 'STARTS NOW' : 'SCHEDULED',
+                  style: const TextStyle(
+                    color: AppColors.logiqGreenDark,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Configure starting and ending date & time for carrier reverse auction.',
+            style: AppTextStyles.caption.copyWith(color: AppColors.inkSoft),
+          ),
+          const SizedBox(height: 16),
+
+          Text(
+            'STARTING DATE & TIME',
+            style: AppTextStyles.labelBold.copyWith(color: AppColors.inkSoft, fontSize: 11, letterSpacing: 0.5),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => _toggleStartNow(true),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _startNow ? AppColors.logiqGreenBg : AppColors.surfaceCanvas,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _startNow ? AppColors.logiqGreen : AppColors.outline,
+                        width: _startNow ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.bolt,
+                          size: 18,
+                          color: _startNow ? AppColors.logiqGreenDark : AppColors.inkSoft,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Now (Immediate)',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: _startNow ? FontWeight.w700 : FontWeight.w500,
+                            color: _startNow ? AppColors.logiqGreenDark : AppColors.ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: InkWell(
+                  onTap: _onScheduleTap,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: !_startNow ? AppColors.logiqGreenBg : AppColors.surfaceCanvas,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: !_startNow ? AppColors.logiqGreen : AppColors.outline,
+                        width: !_startNow ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.calendar_today,
+                          size: 16,
+                          color: !_startNow ? AppColors.logiqGreenDark : AppColors.inkSoft,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Schedule Date/Time',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: !_startNow ? FontWeight.w700 : FontWeight.w500,
+                            color: !_startNow ? AppColors.logiqGreenDark : AppColors.ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          InkWell(
+            onTap: _startNow ? null : _pickBiddingStart,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceCanvas,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.outline),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _startNow ? Icons.bolt : Icons.calendar_today,
+                    size: 20,
+                    color: AppColors.logiqGreen,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _startNow ? 'Starts Immediately' : 'Starts At',
+                          style: AppTextStyles.caption.copyWith(color: AppColors.inkSoft),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _startNow
+                              ? 'Now (Upon tender creation)'
+                              : _dateTimeFormat.format(_biddingStartDate),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: _startNow ? AppColors.logiqGreenDark : AppColors.ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!_startNow)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.outline),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.edit_calendar, size: 14, color: AppColors.logiqGreen),
+                          SizedBox(width: 4),
+                          Text('Pick Date/Time', style: TextStyle(color: AppColors.logiqGreen, fontSize: 12, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.logiqGreenBg,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.logiqGreenBorder),
+                      ),
+                      child: const Text('Immediate', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.logiqGreenDark)),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          Text(
+            'ENDING DATE & TIME',
+            style: AppTextStyles.labelBold.copyWith(color: AppColors.inkSoft, fontSize: 11, letterSpacing: 0.5),
+          ),
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: _pickBiddingEnd,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceCanvas,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.outline),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.event_available, color: AppColors.logiqGreen, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Closes At', style: AppTextStyles.caption.copyWith(color: AppColors.inkSoft)),
+                        const SizedBox(height: 2),
+                        Text(
+                          _dateTimeFormat.format(effectiveEnd),
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.ink),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.outline),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.edit_calendar, size: 14, color: AppColors.logiqGreen),
+                        SizedBox(width: 4),
+                        Text('Pick Date/Time', style: TextStyle(color: AppColors.logiqGreen, fontSize: 12, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceCanvas,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.outline),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 16, color: AppColors.logiqGreen),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Round 1 Timeline & Information',
+                      style: AppTextStyles.labelBold.copyWith(color: AppColors.ink, fontSize: 12),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _startNow
+                      ? 'Round 1 will be from Now until ${_dateTimeFormat.format(effectiveEnd)} ($durationLabel).'
+                      : 'Round 1 will be from ${_dateTimeFormat.format(effectiveStart)} to ${_dateTimeFormat.format(effectiveEnd)} ($durationLabel).',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: AppColors.logiqGreenDark,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _startNow
+                      ? 'Participating carriers can bid immediately upon tender creation. When the timer closes at ${_timeFormat.format(effectiveEnd)}, top 5 carriers (L1–L5) qualify for Round 2 Blind Auction.'
+                      : 'Bidding remains locked until the scheduled start time. Carriers then submit reverse auction bids until ${_dateTimeFormat.format(effectiveEnd)}, when top 5 carriers (L1–L5) qualify for Round 2 Blind Auction.',
+                  style: AppTextStyles.caption.copyWith(color: AppColors.inkSoft, height: 1.35),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -49,7 +49,6 @@ class AuctionProvider extends ChangeNotifier {
       await _refreshRankings(currentAuction!.id!, currentAuction!.currentStage);
     }
 
-    // Check if already completed
     if (currentAuction?.status == AuctionStatus.completed && currentAuction?.id != null) {
       final result = await _auctionService.getResultByAuction(currentAuction!.id!);
       if (result != null) {
@@ -66,15 +65,19 @@ class AuctionProvider extends ChangeNotifier {
     if (currentAuction == null) return;
 
     final now = DateTime.now();
+    final diff = currentTender != null
+        ? currentTender!.softEnd.difference(currentTender!.biddingStart)
+        : DemoConstants.stage1Duration;
+    final dur = diff.inSeconds > 0 ? diff : const Duration(minutes: 3);
     currentAuction = currentAuction!.copyWith(
       status: AuctionStatus.stage1Live,
       currentStage: 1,
       stage1Start: now,
-      stage1End: now.add(DemoConstants.stage1Duration),
+      stage1End: now.add(dur),
     );
     await _auctionService.saveAuction(currentAuction!);
 
-    secondsRemaining = DemoConstants.stage1Duration.inSeconds;
+    secondsRemaining = dur.inSeconds;
 
     _startTicker();
     _startCompetitorSimulation(1);
@@ -105,11 +108,64 @@ class AuctionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> placeBid(int transporterId, double amount, int stage) async {
-    if (currentAuction == null ||
-        currentTender == null ||
-        currentAuction!.id == null) {
+  Future<bool> placeBid(int transporterId, double amount, int stage, {int? tenderId}) async {
+    final tId = tenderId ?? currentTender?.id ?? currentAuction?.tenderId;
+    if (tId != null) {
+      if (currentTender == null || currentTender!.id != tId) {
+        currentTender = await _tenderService.getTenderById(tId);
+      }
+      if (currentAuction == null || currentAuction!.tenderId != tId) {
+        currentAuction = await _auctionService.getAuctionByTenderId(tId);
+      }
+    }
+
+    if (currentAuction == null && currentTender != null && currentTender!.id != null) {
+      final now = DateTime.now();
+      final isScheduled = currentTender!.biddingStart.isAfter(now);
+      final auction = Auction(
+        tenderId: currentTender!.id!,
+        currentStage: 1,
+        stage1Start: currentTender!.biddingStart,
+        stage1End: currentTender!.softEnd,
+        stage2Start: currentTender!.softEnd,
+        stage2End: currentTender!.hardStop,
+        status: isScheduled ? AuctionStatus.scheduled : AuctionStatus.stage1Live,
+      );
+      await _auctionService.saveAuction(auction);
+      currentAuction = await _auctionService.getAuctionByTenderId(currentTender!.id!);
+    }
+    if (currentAuction == null || currentTender == null || currentAuction!.id == null) {
       return false;
+    }
+
+    final now = DateTime.now();
+    if (stage == 1) {
+      if (now.isBefore(currentAuction!.stage1Start) || now.isAfter(currentAuction!.stage1End)) {
+        return false;
+      }
+      if (currentAuction!.status == AuctionStatus.scheduled &&
+          (now.isAfter(currentAuction!.stage1Start) || now.isAtSameMomentAs(currentAuction!.stage1Start))) {
+        currentAuction = currentAuction!.copyWith(status: AuctionStatus.stage1Live, currentStage: 1);
+        await _auctionService.saveAuction(currentAuction!);
+      }
+      if (currentAuction!.status != AuctionStatus.stage1Live) {
+        return false;
+      }
+    } else if (stage == 2) {
+      if (now.isBefore(currentAuction!.stage2Start) || now.isAfter(currentAuction!.stage2End)) {
+        return false;
+      }
+      if (currentAuction!.status != AuctionStatus.stage2Live) {
+        return false;
+      }
+    }
+
+    if (currentTender != null &&
+        currentTender!.id != null &&
+        currentTender!.status != TenderStatus.stage1 &&
+        currentTender!.status != TenderStatus.stage2) {
+      await _tenderService.setStatus(currentTender!.id!, stage == 2 ? TenderStatus.stage2 : TenderStatus.stage1);
+      currentTender = await _tenderService.getTenderById(currentTender!.id!);
     }
 
     if (amount <= 0) return false;
@@ -118,12 +174,18 @@ class AuctionProvider extends ChangeNotifier {
       return false;
     }
 
-    final step = currentTender!.priceDifference;
-    if (rankings.isNotEmpty) {
-      final lowestBid = rankings.first.amount;
-      if (amount > lowestBid - step + 0.001) {
-        return false;
-      }
+    final existingLatest = await _auctionService.getLatestBidFor(
+      auctionId: currentAuction!.id!,
+      transporterId: transporterId,
+      stage: stage,
+    );
+    if (existingLatest != null && amount >= existingLatest.amount) {
+      return false;
+    }
+
+    final myPrev = rankings.where((r) => r.transporterId == transporterId).firstOrNull;
+    if (myPrev != null && amount >= myPrev.amount) {
+      return false;
     }
 
     await _auctionService.invalidatePreviousBids(
@@ -132,7 +194,6 @@ class AuctionProvider extends ChangeNotifier {
       stage: stage,
     );
 
-    // Insert new bid
     await _auctionService.insertBid(
       auctionId: currentAuction!.id!,
       tenderId: currentTender!.id!,
@@ -140,6 +201,28 @@ class AuctionProvider extends ChangeNotifier {
       amount: amount,
       stage: stage,
     );
+
+    if (stage == 1) {
+      final stageBids = await _auctionService.getValidStageBids(currentAuction!.id!, stage);
+      final existingTransporterIds = stageBids.map((b) => b.transporterId).toSet();
+      if (stageBids.length < 5) {
+        final step = currentTender!.priceDifference > 0 ? currentTender!.priceDifference : 500.0;
+        final competitors = [2, 3, 4, 5, 6].where((id) => !existingTransporterIds.contains(id)).toList();
+        for (var i = 0; i < competitors.length && (stageBids.length + i) < 5; i++) {
+          final cid = competitors[i];
+          final competitorAmt = (amount + (step * (i + 1))).clamp(100.0, currentTender!.ceilingBid);
+          if (competitorAmt > amount) {
+            await _auctionService.insertBid(
+              auctionId: currentAuction!.id!,
+              tenderId: currentTender!.id!,
+              transporterId: cid,
+              amount: competitorAmt,
+              stage: stage,
+            );
+          }
+        }
+      }
+    }
 
     _checkExtension();
     await _refreshRankings(currentAuction!.id!, stage);
@@ -163,7 +246,6 @@ class AuctionProvider extends ChangeNotifier {
       _competitorTimer?.cancel();
 
       if (currentAuction?.currentStage == 1) {
-        // Stage 1 ended — determine top 5 and transition
         currentAuction =
             currentAuction!.copyWith(status: AuctionStatus.stage1Completed);
         await _auctionService.saveAuction(currentAuction!);
@@ -213,7 +295,6 @@ class AuctionProvider extends ChangeNotifier {
       return;
     }
 
-    // Pick a random competitor transporter ID (2-7, skipping 1 which is demo user)
     final competitorId = Random().nextInt(6) + 2;
 
     final currentLowest =
@@ -252,12 +333,10 @@ class AuctionProvider extends ChangeNotifier {
     final validBids = await _auctionService.getValidStageBids(auctionId, stage);
     validBids.sort((a, b) => a.amount.compareTo(b.amount));
 
-    // Get transporter names
     final transporterIds =
         validBids.map((b) => b.transporterId).toSet().toList();
     final nameMap = await _auctionService.getCompanyNames(transporterIds);
 
-    // Keep only the best (lowest) bid per transporter
     final seen = <int>{};
     final unique = <Bid>[];
     for (final b in validBids) {

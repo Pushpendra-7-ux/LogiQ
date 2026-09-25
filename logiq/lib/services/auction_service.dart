@@ -1,14 +1,13 @@
 import 'package:logiq/data/local/local_auction_data_source.dart';
 import 'package:logiq/data/local/local_bid_data_source.dart';
+import 'package:logiq/data/local/local_tender_data_source.dart';
 import 'package:logiq/data/local/local_user_data_source.dart';
 import 'package:logiq/models/auction.dart';
 import 'package:logiq/models/auction_participant.dart';
 import 'package:logiq/models/auction_result.dart';
 import 'package:logiq/models/bid.dart';
+import 'package:logiq/models/tender.dart';
 
-/// Service layer abstraction for Auctions and Bidding.
-/// Providers communicate with this service instead of LocalAuctionDataSource / LocalBidDataSource.
-/// When REST APIs arrive, only this service will be updated to use DioClient.
 class AuctionService {
   AuctionService._();
   static final AuctionService instance = AuctionService._();
@@ -72,8 +71,6 @@ class AuctionService {
     return await _auctionDataSource.countByStatus(statuses);
   }
 
-  // ---------- Bid operations ----------
-
   Future<Bid> insertBid({
     required int auctionId,
     required int tenderId,
@@ -128,5 +125,99 @@ class AuctionService {
 
   Future<Map<int, String>> getCompanyNames(List<int> transporterIds) async {
     return await _userDataSource.companyNamesByIds(transporterIds);
+  }
+
+  Future<void> startStage2ForTender({
+    required int tenderId,
+    Duration stage2Duration = const Duration(minutes: 2),
+  }) async {
+    final auction = await _auctionDataSource.byTenderId(tenderId);
+    if (auction == null || auction.id == null) return;
+
+    final stage1Bids = await _bidDataSource.validStageBids(auction.id!, 1);
+    stage1Bids.sort((a, b) => a.amount.compareTo(b.amount));
+    final seen = <int>{};
+    final top5 = <int>[];
+    for (final b in stage1Bids) {
+      if (seen.add(b.transporterId)) {
+        top5.add(b.transporterId);
+        if (top5.length == 5) break;
+      }
+    }
+
+    if (top5.isNotEmpty) {
+      await _auctionDataSource.markStage1Results(auction.id!, qualifiedTransporterIds: top5);
+    }
+
+    final now = DateTime.now();
+    final updated = auction.copyWith(
+      currentStage: 2,
+      status: AuctionStatus.stage2Live,
+      stage2Start: now,
+      stage2End: now.add(stage2Duration),
+    );
+    await _auctionDataSource.save(updated);
+    await LocalTenderDataSource.instance.setStatus(tenderId, TenderStatus.stage2);
+  }
+
+  Future<void> checkAndTransitionAuction(int tenderId) async {
+    final auction = await _auctionDataSource.byTenderId(tenderId);
+    if (auction == null || auction.id == null) return;
+
+    final now = DateTime.now();
+    if (auction.status == AuctionStatus.scheduled && now.isAfter(auction.stage1Start)) {
+      final updated = auction.copyWith(status: AuctionStatus.stage1Live, currentStage: 1);
+      await _auctionDataSource.save(updated);
+      await LocalTenderDataSource.instance.setStatus(tenderId, TenderStatus.stage1);
+    } else if (auction.status == AuctionStatus.stage1Live && now.isAfter(auction.stage1End)) {
+      final updated = auction.copyWith(status: AuctionStatus.stage1Completed);
+      await _auctionDataSource.save(updated);
+      final stage1Bids = await _bidDataSource.validStageBids(auction.id!, 1);
+      stage1Bids.sort((a, b) => a.amount.compareTo(b.amount));
+      final seen = <int>{};
+      final top5 = <int>[];
+      for (final b in stage1Bids) {
+        if (seen.add(b.transporterId)) {
+          top5.add(b.transporterId);
+          if (top5.length == 5) break;
+        }
+      }
+      if (top5.isNotEmpty) {
+        await _auctionDataSource.markStage1Results(auction.id!, qualifiedTransporterIds: top5);
+      }
+    } else if (auction.status == AuctionStatus.stage2Live && now.isAfter(auction.stage2End)) {
+      final stage2Bids = await _bidDataSource.validStageBids(auction.id!, 2);
+      stage2Bids.sort((a, b) => a.amount.compareTo(b.amount));
+      Bid? winningBid;
+      if (stage2Bids.isNotEmpty) {
+        winningBid = stage2Bids.first;
+      } else {
+        final stage1Bids = await _bidDataSource.validStageBids(auction.id!, 1);
+        stage1Bids.sort((a, b) => a.amount.compareTo(b.amount));
+        if (stage1Bids.isNotEmpty) {
+          winningBid = stage1Bids.first;
+        }
+      }
+
+      if (winningBid != null) {
+        final names = await _userDataSource.companyNamesByIds([winningBid.transporterId]);
+        final winnerName = names[winningBid.transporterId] ?? 'Carrier ${winningBid.transporterId}';
+        final result = AuctionResult(
+          auctionId: auction.id!,
+          winnerTransporterId: winningBid.transporterId,
+          winnerName: winnerName,
+          winningBid: winningBid.amount,
+          completedAt: now,
+        );
+        await _auctionDataSource.saveResult(result);
+        final completedAuction = auction.copyWith(
+          status: AuctionStatus.completed,
+          winnerTransporterId: () => winningBid!.transporterId,
+          finalPrice: () => winningBid!.amount,
+        );
+        await _auctionDataSource.save(completedAuction);
+        await LocalTenderDataSource.instance.setStatus(tenderId, TenderStatus.completed);
+      }
+    }
   }
 }

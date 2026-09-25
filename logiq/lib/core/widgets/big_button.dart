@@ -41,8 +41,6 @@ class _BigButtonState extends State<BigButton> {
   void _handleTapUp(TapUpDetails details) {
     if (widget.onPressed != null && !widget.isLoading) {
       setState(() => _isPressed = false);
-      Haptics.tap();
-      widget.onPressed!();
     }
   }
 
@@ -75,6 +73,12 @@ class _BigButtonState extends State<BigButton> {
       onTapDown: _handleTapDown,
       onTapUp: _handleTapUp,
       onTapCancel: _handleTapCancel,
+      onTap: () {
+        if (widget.onPressed != null && !widget.isLoading) {
+          Haptics.tap();
+          widget.onPressed!();
+        }
+      },
       child: AnimatedScale(
         scale: _isPressed ? 0.95 : 1.0,
         duration: const Duration(milliseconds: 100),

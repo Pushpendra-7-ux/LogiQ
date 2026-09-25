@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -9,8 +10,10 @@ import 'package:logiq/core/widgets/route_display.dart';
 import 'package:logiq/core/widgets/status_chip.dart';
 import 'package:logiq/providers/tender_provider.dart';
 import 'package:logiq/providers/auction_provider.dart';
+import 'package:logiq/providers/auth_provider.dart';
 import 'package:logiq/models/tender.dart';
 import 'package:logiq/models/material.dart';
+import 'package:intl/intl.dart';
 
 class TenderDetailTransporterScreen extends StatefulWidget {
   final int tenderId;
@@ -24,11 +27,21 @@ class TenderDetailTransporterScreen extends StatefulWidget {
 class _TenderDetailTransporterScreenState extends State<TenderDetailTransporterScreen> {
   List<MaterialItem> materials = [];
   bool isLoading = true;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _timer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (mounted) _loadData();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -209,8 +222,11 @@ class _TenderDetailTransporterScreenState extends State<TenderDetailTransporterS
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Bidding Starts', style: AppTextStyles.label),
-                    Text(Formatters.formatDate(tender.biddingStart), style: AppTextStyles.bodyMedium),
+                    Text('Bidding Window', style: AppTextStyles.label),
+                    Text(
+                      '${DateFormat("dd MMM, hh:mm a").format(tender.biddingStart)} – ${DateFormat("dd MMM, hh:mm a").format(tender.softEnd)}',
+                      style: AppTextStyles.bodyMedium,
+                    ),
                   ],
                 ),
               ),
@@ -281,17 +297,115 @@ class _TenderDetailTransporterScreenState extends State<TenderDetailTransporterS
     }
 
     if (tender.status == TenderStatus.scheduled || tender.status == TenderStatus.stage1) {
+      final now = DateTime.now();
+      final isBeforeStart = now.isBefore(tender.biddingStart);
+      final isPastEnd = now.isAfter(tender.softEnd);
+
+      if (isBeforeStart) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: AppColors.divider)),
+          ),
+          child: BigButton(
+            label: 'BIDDING OPENS ${DateFormat("dd MMM, hh:mm a").format(tender.biddingStart).toUpperCase()}',
+            icon: Icons.schedule,
+            color: AppColors.inkSoft,
+            onPressed: null,
+          ),
+        );
+      }
+
+      if (isPastEnd) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: AppColors.divider)),
+          ),
+          child: BigButton(
+            label: 'ROUND 1 BIDDING CLOSED',
+            icon: Icons.lock_clock,
+            color: AppColors.inkSoft,
+            onPressed: null,
+          ),
+        );
+      }
+
+      final auth = context.watch<AuthProvider>();
+      final tid = auth.currentTransporter?.id ?? auth.currentUser?.id;
+      final myRanking = tid != null ? auction.rankings.where((r) => r.transporterId == tid).firstOrNull : null;
+
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: const BoxDecoration(
           color: Colors.white,
           border: Border(top: BorderSide(color: AppColors.divider)),
         ),
-        child: BigButton(
-          label: 'PLACE BID',
-          icon: Icons.gavel,
-          color: AppColors.primary,
-          onPressed: () => context.push('/tender/${tender.id}/bid'),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (myRanking != null) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: myRanking.rank == 1 ? AppColors.logiqGreenBg : AppColors.surfaceCanvas,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: myRanking.rank == 1 ? AppColors.logiqGreenBorder : AppColors.outline,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: myRanking.rank == 1 ? AppColors.logiqGreen : AppColors.outline,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'L${myRanking.rank}',
+                            style: TextStyle(
+                              color: myRanking.rank == 1 ? AppColors.white : AppColors.inkSoft,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          myRanking.rank == 1 ? 'Your Bid (Best L1 Offer)' : 'Your Current Bid',
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.ink),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      '₹${myRanking.amount.toInt()}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: myRanking.rank == 1 ? AppColors.logiqGreen : AppColors.ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            BigButton(
+              label: myRanking != null ? 'LOWER YOUR BID' : 'PLACE BID',
+              icon: Icons.gavel,
+              color: AppColors.primary,
+              onPressed: () async {
+                await context.push('/tender/${tender.id}/bid');
+                if (mounted) _loadData();
+              },
+            ),
+          ],
         ),
       );
     }

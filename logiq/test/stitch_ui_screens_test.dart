@@ -74,14 +74,13 @@ void main() {
       await tester.pumpWidget(buildTestApp(const UserHomeScreen(), auth: auth));
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.text('USER'), findsOneWidget);
-      expect(find.text('LIVE PROCUREMENT PORTAL'), findsOneWidget);
-      expect(find.text('SteelCorp Logistics'), findsOneWidget);
-      expect(find.text('Procure New Corridor'), findsOneWidget);
-      expect(find.text('ACTIVE TENDERS'), findsOneWidget);
-      expect(find.text('TOTAL SAVINGS'), findsOneWidget);
-      expect(find.text('LOADS DISPATCHED'), findsOneWidget);
-      expect(find.text('CARRIERS / TENDER'), findsOneWidget);
+      expect(find.text('Dashboard'), findsOneWidget);
+      expect(find.text('Manage tenders and real-time carrier bids'), findsOneWidget);
+      expect(find.text('Hi, SteelCorp Logistics'), findsOneWidget);
+      expect(find.text('Create Tender'), findsOneWidget);
+      expect(find.text('Draft Tenders'), findsOneWidget);
+      expect(find.text('Active Tenders'), findsOneWidget);
+      expect(find.text('Tender History'), findsOneWidget);
     });
 
     testWidgets('TransporterHomeScreen displays CARRIER badge and stats', (tester) async {
@@ -162,7 +161,6 @@ void main() {
       expect(find.text('-₹100'), findsOneWidget);
       expect(find.text('SUBMIT BID'), findsOneWidget);
 
-      // Tap stage toggle to test Stage 2 Blind Bid transition
       await tester.tap(find.byIcon(Icons.lock_outline));
       await tester.pump(const Duration(milliseconds: 100));
 

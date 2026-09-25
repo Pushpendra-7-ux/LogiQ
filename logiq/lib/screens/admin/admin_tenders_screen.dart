@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -6,9 +7,13 @@ import 'package:logiq/core/theme/app_colors.dart';
 import 'package:logiq/core/utils/haptics.dart';
 import 'package:logiq/providers/tender_provider.dart';
 import 'package:logiq/models/tender.dart';
+import 'package:logiq/models/auction.dart';
+import 'package:logiq/services/auction_service.dart';
 
 class AdminTendersScreen extends StatefulWidget {
-  const AdminTendersScreen({super.key});
+  final String? initialFilter;
+
+  const AdminTendersScreen({super.key, this.initialFilter});
 
   @override
   State<AdminTendersScreen> createState() => _AdminTendersScreenState();
@@ -17,13 +22,57 @@ class AdminTendersScreen extends StatefulWidget {
 class _AdminTendersScreenState extends State<AdminTendersScreen> {
   String _filter = 'All';
   final _currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+  Timer? _timer;
+  final Map<int, Auction> _auctions = {};
+  final AuctionService _auctionService = AuctionService.instance;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TenderProvider>().loadAllTenders();
+    _filter = widget.initialFilter ?? 'All';
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+    _timer = Timer.periodic(const Duration(seconds: 2), (_) async {
+      if (!mounted) return;
+      await _syncAuctions();
+      if (mounted) setState(() {});
     });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    await context.read<TenderProvider>().loadAllTenders();
+    await _syncAuctions();
+  }
+
+  Future<void> _syncAuctions() async {
+    final tenderProv = context.read<TenderProvider>();
+    await tenderProv.loadAllTenders(silent: true);
+    final active = tenderProv.activeTenders;
+    for (final t in active) {
+      if (t.id == null) continue;
+      try {
+        await _auctionService.checkAndTransitionAuction(t.id!);
+        final auc = await _auctionService.getAuctionByTenderId(t.id!);
+        if (auc != null) {
+          _auctions[t.id!] = auc;
+        }
+      } catch (_) {}
+    }
+  }
+
+  String _formatTimeRemaining(DateTime? endTime) {
+    if (endTime == null) return "00:00";
+    final now = DateTime.now();
+    final diff = endTime.difference(now);
+    if (diff.isNegative) return "00:00";
+    final minutes = diff.inMinutes.toString().padLeft(2, '0');
+    final seconds = (diff.inSeconds % 60).toString().padLeft(2, '0');
+    return "$minutes:$seconds";
   }
 
   @override
@@ -31,7 +80,7 @@ class _AdminTendersScreenState extends State<AdminTendersScreen> {
     final tenderProv = context.watch<TenderProvider>();
     
     List<Tender> filteredTenders = [];
-    final all = tenderProv.activeTenders + tenderProv.completedTenders + tenderProv.scheduledTenders;
+    final all = tenderProv.allTenders;
     
     if (_filter == 'All') {
       filteredTenders = all;
@@ -159,15 +208,44 @@ class _AdminTendersScreenState extends State<AdminTendersScreen> {
   }
 
   Widget _buildAdminTenderCard(BuildContext context, Tender tender) {
-    final statusColor = tender.status.isActive
-        ? AppColors.logiqGreen
-        : tender.status == TenderStatus.completed
-            ? AppColors.ink
-            : AppColors.inkSoft;
+    final auction = _auctions[tender.id];
+    final now = DateTime.now();
+    final effectiveStage1Start = auction?.stage1Start ?? tender.biddingStart;
+    final effectiveStage1End = auction?.stage1End ?? tender.softEnd;
+    final effectiveStage2End = auction?.stage2End ?? tender.hardStop;
+    final isScheduled = (auction?.status == AuctionStatus.scheduled || tender.status == TenderStatus.scheduled) && now.isBefore(effectiveStage1Start);
+    final isPastStage1End = now.isAfter(effectiveStage1End);
+    final isRound1Live = !isScheduled && (auction?.status == AuctionStatus.stage1Live || (auction == null && tender.status == TenderStatus.stage1)) && !isPastStage1End;
+    final isRound1Ended = !isScheduled && ((auction?.status == AuctionStatus.stage1Completed) ||
+        ((auction?.status == AuctionStatus.stage1Live || tender.status == TenderStatus.stage1) && isPastStage1End));
+    final isRound2Live = auction?.status == AuctionStatus.stage2Live || tender.status == TenderStatus.stage2;
+    final isCompleted = auction?.status == AuctionStatus.completed || tender.status == TenderStatus.completed;
 
-    final statusBg = tender.status.isActive
-        ? AppColors.logiqGreenBg
-        : AppColors.surfaceCanvas;
+    Color statusColor = AppColors.inkSoft;
+    Color statusBg = AppColors.surfaceCanvas;
+    String statusLabel = tender.status.label.toUpperCase();
+
+    if (isScheduled) {
+      statusColor = Colors.blue.shade800;
+      statusBg = Colors.blue.shade50;
+      statusLabel = 'SCHEDULED';
+    } else if (isRound1Live) {
+      statusColor = AppColors.logiqGreen;
+      statusBg = AppColors.logiqGreenBg;
+      statusLabel = 'STAGE 1 • LIVE';
+    } else if (isRound2Live) {
+      statusColor = Colors.deepPurple;
+      statusBg = Colors.deepPurple.shade50;
+      statusLabel = 'STAGE 2 • BLIND';
+    } else if (isRound1Ended) {
+      statusColor = Colors.orange.shade800;
+      statusBg = Colors.orange.shade50;
+      statusLabel = 'STAGE 1 COMPLETED';
+    } else if (isCompleted) {
+      statusColor = AppColors.logiqGreen;
+      statusBg = AppColors.logiqGreenBg;
+      statusLabel = 'COMPLETED';
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -204,6 +282,30 @@ class _AdminTendersScreenState extends State<AdminTendersScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
+                    if (isScheduled || isRound1Live || isRound2Live) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.outline),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(isScheduled ? Icons.schedule : Icons.timer_outlined, size: 12, color: AppColors.ink),
+                            const SizedBox(width: 4),
+                            Text(
+                              isScheduled
+                                  ? _formatTimeRemaining(effectiveStage1Start)
+                                  : _formatTimeRemaining(isRound1Live ? effectiveStage1End : effectiveStage2End),
+                              style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -212,7 +314,7 @@ class _AdminTendersScreenState extends State<AdminTendersScreen> {
                         border: Border.all(color: statusColor.withValues(alpha: 0.3)),
                       ),
                       child: Text(
-                        tender.status.label.toUpperCase(),
+                        statusLabel,
                         style: TextStyle(
                           color: statusColor,
                           fontSize: 10,

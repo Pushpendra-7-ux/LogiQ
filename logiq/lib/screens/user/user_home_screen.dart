@@ -22,8 +22,10 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
 
   Future<void> _loadData() async {
     final user = context.read<AuthProvider>().currentUser;
+    final tenderProvider = context.read<TenderProvider>();
     if (user?.id != null) {
-      await context.read<TenderProvider>().loadTendersForUser(user!.id!);
+      await tenderProvider.checkAutoPublish(user!.id!);
+      await tenderProvider.loadTendersForUser(user.id!);
     }
   }
 

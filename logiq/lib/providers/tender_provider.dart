@@ -1,13 +1,14 @@
 import 'package:flutter/foundation.dart';
-import 'package:logiq/core/constants/app_constants.dart';
-import 'package:logiq/core/constants/demo_constants.dart';
+import 'package:logiq/models/auction.dart';
 import 'package:logiq/models/material.dart';
 import 'package:logiq/models/tender.dart';
 import 'package:logiq/models/transporter.dart';
+import 'package:logiq/services/auction_service.dart';
 import 'package:logiq/services/tender_service.dart';
 
 class TenderProvider extends ChangeNotifier {
   final TenderService _tenderService = TenderService.instance;
+  final AuctionService _auctionService = AuctionService.instance;
 
   TenderProvider();
 
@@ -41,6 +42,8 @@ class TenderProvider extends ChangeNotifier {
     return _approvedTransporters;
   }
 
+  List<Tender> get allTenders => List.unmodifiable(_tenders);
+
   List<Tender> get activeTenders => _tenders.where((t) =>
       t.status != TenderStatus.draft &&
       t.status != TenderStatus.pendingPublish &&
@@ -63,27 +66,32 @@ class TenderProvider extends ChangeNotifier {
   int get draftCount => draftTenders.length;
   int get completedCount => completedTenders.length;
 
-  Future<void> loadTendersForUser(int userId) async {
-    isLoading = true;
-    error = null;
-    notifyListeners();
+  Future<void> loadTendersForUser(int userId, {bool silent = false}) async {
+    if (!silent) {
+      isLoading = true;
+      error = null;
+      notifyListeners();
+    }
 
     try {
       _tenders = await _tenderService.getTendersForUser(userId);
-      // Auto-publish any expired pending-publish tenders
       await _autoPublishExpired(userId);
     } catch (e) {
       error = e.toString();
     }
 
-    isLoading = false;
+    if (!silent) {
+      isLoading = false;
+    }
     notifyListeners();
   }
 
-  Future<void> loadTendersForTransporter(int transporterId) async {
-    isLoading = true;
-    error = null;
-    notifyListeners();
+  Future<void> loadTendersForTransporter(int transporterId, {bool silent = false}) async {
+    if (!silent) {
+      isLoading = true;
+      error = null;
+      notifyListeners();
+    }
 
     try {
       _tenders = await _tenderService.getTendersForTransporter(transporterId);
@@ -91,14 +99,18 @@ class TenderProvider extends ChangeNotifier {
       error = e.toString();
     }
 
-    isLoading = false;
+    if (!silent) {
+      isLoading = false;
+    }
     notifyListeners();
   }
 
-  Future<void> loadAllTenders() async {
-    isLoading = true;
-    error = null;
-    notifyListeners();
+  Future<void> loadAllTenders({bool silent = false}) async {
+    if (!silent) {
+      isLoading = true;
+      error = null;
+      notifyListeners();
+    }
 
     try {
       _tenders = await _tenderService.getAllTenders();
@@ -106,7 +118,9 @@ class TenderProvider extends ChangeNotifier {
       error = e.toString();
     }
 
-    isLoading = false;
+    if (!silent) {
+      isLoading = false;
+    }
     notifyListeners();
   }
 
@@ -155,8 +169,6 @@ class TenderProvider extends ChangeNotifier {
     return await _tenderService.getParticipantCount(tenderId);
   }
 
-  /// Create a tender as a "Pending Publish" draft with 3-minute countdown.
-  /// Returns the tender ID if successful.
   Future<int?> createTenderAsDraft({
     required String title,
     required String pickup,
@@ -170,6 +182,10 @@ class TenderProvider extends ChangeNotifier {
     required int createdBy,
     String remarks = '',
     String vehicleType = 'Truck',
+    DateTime? biddingStart,
+    DateTime? biddingEnd,
+    bool startNow = true,
+    Duration biddingDuration = const Duration(minutes: 3),
   }) async {
     isLoading = true;
     error = null;
@@ -177,10 +193,11 @@ class TenderProvider extends ChangeNotifier {
 
     try {
       final now = DateTime.now();
-      final publishAt = now.add(AppConstants.draftCountdownDuration);
-      final biddingStart = publishAt;
-      final softEnd = biddingStart.add(DemoConstants.stage1Duration);
-      final hardStop = softEnd.add(DemoConstants.hardStopBuffer);
+      final effectiveStart = startNow ? now : (biddingStart ?? now);
+      final effectiveEnd = biddingEnd ?? effectiveStart.add(biddingDuration);
+      final hardStop = effectiveEnd.add(const Duration(minutes: 5));
+      final publishAt = now.add(const Duration(minutes: 3));
+      const status = TenderStatus.pendingPublish;
 
       var resolvedTransporterIds = transporterIds;
       if (resolvedTransporterIds.isEmpty) {
@@ -195,9 +212,9 @@ class TenderProvider extends ChangeNotifier {
         drop: drop,
         deliveryStart: deliveryStart,
         deliveryEnd: deliveryEnd,
-        closingDate: publishAt,
-        biddingStart: biddingStart,
-        softEnd: softEnd,
+        closingDate: effectiveEnd,
+        biddingStart: effectiveStart,
+        softEnd: effectiveEnd,
         hardStop: hardStop,
         priceDifference: minDecrement,
         ceilingBid: ceilingBid,
@@ -205,7 +222,7 @@ class TenderProvider extends ChangeNotifier {
         remarks: remarks,
         vehicleType: vehicleType,
         publishAt: publishAt,
-        status: TenderStatus.pendingPublish,
+        status: status,
         createdAt: now,
       );
 
@@ -311,46 +328,93 @@ class TenderProvider extends ChangeNotifier {
     }
   }
 
-  /// Publish a pending-publish draft immediately (auto or manual).
   Future<bool> publishDraft({
     required int tenderId,
     required int userId,
+    bool silent = false,
   }) async {
-    isLoading = true;
-    error = null;
-    notifyListeners();
+    if (!silent) {
+      isLoading = true;
+      error = null;
+      notifyListeners();
+    }
 
     try {
-      final tender = tenderById(tenderId);
+      var tender = tenderById(tenderId);
+      tender ??= await _tenderService.getTenderById(tenderId);
       if (tender == null) throw Exception('Tender not found');
 
       final now = DateTime.now();
-      final biddingStart = now;
-      final softEnd = biddingStart.add(DemoConstants.stage1Duration);
-      final hardStop = softEnd.add(DemoConstants.hardStopBuffer);
+      final isScheduled = tender.biddingStart.isAfter(now);
 
-      // Update tender to scheduled
-      await _tenderService.setStatus(tenderId, TenderStatus.scheduled);
+      DateTime biddingStart;
+      DateTime softEnd;
+      DateTime hardStop;
+      TenderStatus newStatus;
+      AuctionStatus auctionStatus;
 
-      // Create the auction record
+      if (isScheduled) {
+        biddingStart = tender.biddingStart;
+        softEnd = tender.softEnd;
+        hardStop = tender.hardStop;
+        newStatus = TenderStatus.scheduled;
+        auctionStatus = AuctionStatus.scheduled;
+      } else {
+        final diff = tender.softEnd.difference(tender.biddingStart);
+        final duration = diff.inSeconds > 0 ? diff : const Duration(minutes: 3);
+        biddingStart = now;
+        softEnd = biddingStart.add(duration);
+        hardStop = softEnd.add(const Duration(minutes: 5));
+        newStatus = TenderStatus.stage1;
+        auctionStatus = AuctionStatus.stage1Live;
+      }
+
+      await _tenderService.updateStatusAndSchedule(
+        tenderId: tenderId,
+        status: newStatus,
+        biddingStart: biddingStart,
+        softEnd: softEnd,
+        hardStop: hardStop,
+      );
+
       await _tenderService.createAuctionForTender(
         tenderId: tenderId,
         biddingStart: biddingStart,
         softEnd: softEnd,
         hardStop: hardStop,
+        status: auctionStatus,
       );
 
       await loadTendersForUser(userId);
       return true;
     } catch (e) {
       error = e.toString();
-      isLoading = false;
-      notifyListeners();
+      if (!silent) {
+        isLoading = false;
+        notifyListeners();
+      }
       return false;
     }
   }
 
-  /// Cancel a draft during the 3-minute window.
+  Future<bool> startRound2BlindAuction({
+    required int tenderId,
+    required int userId,
+    Duration stage2Duration = const Duration(minutes: 2),
+  }) async {
+    try {
+      await AuctionService.instance.startStage2ForTender(
+        tenderId: tenderId,
+        stage2Duration: stage2Duration,
+      );
+      await loadTendersForUser(userId);
+      return true;
+    } catch (e) {
+      debugPrint('Error starting Round 2: $e');
+      return false;
+    }
+  }
+
   Future<bool> cancelDraft({
     required int tenderId,
     required int userId,
@@ -424,13 +488,12 @@ class TenderProvider extends ChangeNotifier {
     }
   }
 
-  /// Auto-publish all expired pending-publish tenders.
   Future<void> _autoPublishExpired(int userId) async {
     final expired = _tenders.where((t) => t.shouldAutoPublish).toList();
     for (final t in expired) {
       if (t.id != null) {
         try {
-          await publishDraft(tenderId: t.id!, userId: userId);
+          await publishDraft(tenderId: t.id!, userId: userId, silent: true);
         } catch (e) {
           debugPrint('Auto-publish failed for tender ${t.id}: $e');
         }
@@ -438,19 +501,41 @@ class TenderProvider extends ChangeNotifier {
     }
   }
 
-  /// Check and auto-publish expired drafts (called by timer).
-  Future<void> checkAutoPublish(int userId) async {
-    final expired = _tenders.where((t) => t.shouldAutoPublish).toList();
-    if (expired.isEmpty) return;
-
-    for (final t in expired) {
-      if (t.id != null) {
-        try {
-          await publishDraft(tenderId: t.id!, userId: userId);
-        } catch (e) {
-          debugPrint('Auto-publish failed for tender ${t.id}: $e');
+  Future<void> checkAutoPublish([
+    int? currentUserId,
+    String? role,
+    int? transporterId,
+  ]) async {
+    try {
+      final all = await _tenderService.getAllTenders();
+      final expired = all.where((t) => t.shouldAutoPublish).toList();
+      for (final t in expired) {
+        if (t.id != null) {
+          try {
+            await publishDraft(tenderId: t.id!, userId: currentUserId ?? t.createdBy, silent: true);
+          } catch (_) {}
         }
       }
-    }
+
+      final active = all.where((t) =>
+          t.status == TenderStatus.scheduled ||
+          t.status == TenderStatus.stage1 ||
+          t.status == TenderStatus.stage2).toList();
+      for (final t in active) {
+        if (t.id != null) {
+          try {
+            await _auctionService.checkAndTransitionAuction(t.id!);
+          } catch (_) {}
+        }
+      }
+
+      if (role == 'admin') {
+        await loadAllTenders(silent: true);
+      } else if (role == 'transporter' && transporterId != null) {
+        await loadTendersForTransporter(transporterId, silent: true);
+      } else if (currentUserId != null && role != 'admin' && role != 'transporter') {
+        await loadTendersForUser(currentUserId, silent: true);
+      }
+    } catch (_) {}
   }
 }

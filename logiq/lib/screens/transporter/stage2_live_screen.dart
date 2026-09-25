@@ -7,6 +7,7 @@ import 'package:logiq/providers/auth_provider.dart';
 import 'package:logiq/providers/tender_provider.dart';
 import 'package:logiq/providers/auction_provider.dart';
 import 'package:logiq/models/tender.dart';
+import 'package:logiq/services/auth_service.dart';
 
 class Stage2LiveScreen extends StatefulWidget {
   final int tenderId;
@@ -25,7 +26,7 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
   @override
   void initState() {
     super.initState();
-    _bidController = TextEditingController(text: '49225');
+    _bidController = TextEditingController(text: '74500');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initAuction();
     });
@@ -45,13 +46,22 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
     if (!mounted) return;
 
     final tender = tenderProv.tenderById(widget.tenderId);
+    final ceiling = tender?.ceilingBid ?? 75000.0;
+    final step = tender?.priceDifference ?? 500.0;
+    final defaultBid = (ceiling - step).clamp(100.0, ceiling);
+
     if ((auctionProv.currentAuction != null && auctionProv.currentAuction!.currentStage == 2) ||
         tender?.status == TenderStatus.stage2) {
+      final currentLowest = auctionProv.rankings.isNotEmpty ? auctionProv.rankings.first.amount : ceiling;
+      final stage2Bid = (currentLowest - step).clamp(100.0, ceiling);
       setState(() {
         _activeStage = 2;
-        _bidController.text = '48800';
+        _bidController.text = stage2Bid.toInt().toString();
       });
     } else {
+      setState(() {
+        _bidController.text = defaultBid.toInt().toString();
+      });
       if (auctionProv.currentAuction == null || !auctionProv.currentAuction!.status.isRunning) {
         await auctionProv.startStage1();
       }
@@ -60,8 +70,8 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
 
   void _decrementBid(double amount) {
     Haptics.light();
-    final current = double.tryParse(_bidController.text) ?? 49225.0;
-    final next = (current - amount).clamp(1000.0, 1000000.0);
+    final current = double.tryParse(_bidController.text) ?? 74500.0;
+    final next = (current - amount).clamp(100.0, 10000000.0);
     setState(() {
       _bidController.text = next.toStringAsFixed(0);
     });
@@ -70,7 +80,12 @@ class _Stage2LiveScreenState extends State<Stage2LiveScreen> {
   Future<void> _submitBid() async {
     final auctionProv = context.read<AuctionProvider>();
     final auth = context.read<AuthProvider>();
-    final transporterId = auth.currentTransporter?.id ?? 1;
+    var transporterId = auth.currentTransporter?.id;
+    if (transporterId == null && auth.currentUser != null) {
+      final profile = await AuthService.instance.ensureTransporterProfile(auth.currentUser!);
+      transporterId = profile?.id;
+    }
+    transporterId ??= auth.currentUser?.id ?? 1;
     final amount = double.tryParse(_bidController.text);
 
     if (amount == null || amount <= 0) return;

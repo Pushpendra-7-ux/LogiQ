@@ -8,6 +8,8 @@ import 'package:logiq/core/widgets/tender_card.dart';
 import 'package:logiq/providers/auth_provider.dart';
 import 'package:logiq/providers/tender_provider.dart';
 
+import 'package:logiq/services/auth_service.dart';
+
 class AvailableTendersScreen extends StatefulWidget {
   const AvailableTendersScreen({super.key});
 
@@ -21,10 +23,18 @@ class _AvailableTendersScreenState extends State<AvailableTendersScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final tid = context.read<AuthProvider>().currentTransporter?.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final auth = context.read<AuthProvider>();
+      var tid = auth.currentTransporter?.id;
+      if (tid == null && auth.currentUser != null) {
+        final profile = await AuthService.instance.ensureTransporterProfile(auth.currentUser!);
+        tid = profile?.id;
+      }
+      if (!mounted) return;
       if (tid != null) {
         context.read<TenderProvider>().loadTendersForTransporter(tid);
+      } else {
+        context.read<TenderProvider>().loadAllTenders();
       }
     });
   }
@@ -79,9 +89,15 @@ class _AvailableTendersScreenState extends State<AvailableTendersScreen> {
               : RefreshIndicator(
                   color: AppColors.electricBlue,
                   onRefresh: () async {
-                    final tid = authProvider.currentTransporter?.id;
+                    var tid = authProvider.currentTransporter?.id;
+                    if (tid == null && authProvider.currentUser != null) {
+                      final profile = await AuthService.instance.ensureTransporterProfile(authProvider.currentUser!);
+                      tid = profile?.id;
+                    }
                     if (tid != null) {
                       await tenderProvider.loadTendersForTransporter(tid);
+                    } else {
+                      await tenderProvider.loadAllTenders();
                     }
                   },
                   child: ListView.separated(

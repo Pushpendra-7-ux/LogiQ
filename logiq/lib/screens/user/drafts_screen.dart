@@ -82,6 +82,21 @@ class _DraftsScreenState extends State<DraftsScreen> {
     });
   }
 
+  void _publishNow(Tender draft) {
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    if (userId != null && draft.id != null) {
+      context.read<DraftTimerProvider>().unregisterDraft(draft.id!);
+      context.read<TenderProvider>().publishDraft(tenderId: draft.id!, userId: userId).then((success) {
+        if (mounted && success) {
+          setState(() => _showSuccessBanner = true);
+          Future.delayed(const Duration(seconds: 5), () {
+            if (mounted) setState(() => _showSuccessBanner = false);
+          });
+        }
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final tenderProvider = context.watch<TenderProvider>();
@@ -124,6 +139,7 @@ class _DraftsScreenState extends State<DraftsScreen> {
                         draft: drafts[index],
                         onCancel: () => _cancelDraft(drafts[index]),
                         onEdit: () => _editDraft(drafts[index]),
+                        onPublishNow: () => _publishNow(drafts[index]),
                       ),
                     ),
             ),
@@ -203,8 +219,14 @@ class _DraftCard extends StatelessWidget {
   final Tender draft;
   final VoidCallback onCancel;
   final VoidCallback onEdit;
+  final VoidCallback onPublishNow;
 
-  const _DraftCard({required this.draft, required this.onCancel, required this.onEdit});
+  const _DraftCard({
+    required this.draft,
+    required this.onCancel,
+    required this.onEdit,
+    required this.onPublishNow,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -302,17 +324,31 @@ class _DraftCard extends StatelessWidget {
                   child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton(
                   onPressed: onEdit,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.logiqGreen,
-                    side: const BorderSide(color: AppColors.logiqGreen),
+                    foregroundColor: AppColors.ink,
+                    side: const BorderSide(color: AppColors.outline),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: const Text('Edit', style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: onPublishNow,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.logiqGreen,
+                    foregroundColor: AppColors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Publish Now', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                 ),
               ),
             ],

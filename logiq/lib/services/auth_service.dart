@@ -26,9 +26,6 @@ class AuthRejectedException extends AuthException {
             : 'Your registration request was rejected. Please contact the administrator.');
 }
 
-/// Service layer abstraction for Authentication and User management.
-/// Providers communicate with this service instead of LocalUserDataSource directly.
-/// When REST APIs arrive, only this service will be updated to use DioClient.
 class AuthService {
   AuthService._();
   static final AuthService instance = AuthService._();
@@ -53,7 +50,6 @@ class AuthService {
       return null;
     }
 
-    // Role check if an expected role was specified
     if (expectedRole != null) {
       final normUserRole =
           user.role == 'shipper' ? AppUser.roleUser : user.role;
@@ -66,7 +62,6 @@ class AuthService {
       }
     }
 
-    // Check account status
     if (user.status == AppUser.statusPending) {
       throw const AuthPendingException();
     }
@@ -110,7 +105,6 @@ class AuthService {
     return newUser.copyWith(id: id);
   }
 
-  // Alias for backward compatibility
   Future<AppUser> registerShipper({
     required String name,
     required String email,
@@ -161,7 +155,6 @@ class AuthService {
 
     final id = await _userDataSource.insertUser(newUser);
 
-    // Also register transporter company row with GSTIN and Transport ID
     final effectiveVahanId = (transportId != null && transportId.trim().isNotEmpty)
         ? transportId.trim()
         : (vehicleInfo?.trim() ?? '');
@@ -179,6 +172,21 @@ class AuthService {
 
   Future<Transporter?> getTransporterProfile(int userId) async {
     return await _userDataSource.byUserId(userId);
+  }
+
+  Future<Transporter?> ensureTransporterProfile(AppUser user) async {
+    if (user.id == null) return null;
+    var profile = await _userDataSource.byUserId(user.id!);
+    if (profile == null) {
+      final cName = user.companyName.trim().isNotEmpty ? user.companyName.trim() : user.name.trim();
+      final id = await _userDataSource.insertTransporterCompany(
+        userId: user.id!,
+        companyName: cName.isNotEmpty ? cName : 'LogiQ Carrier',
+        isApproved: true,
+      );
+      profile = await _userDataSource.byId(id);
+    }
+    return profile;
   }
 
   Future<AppUser?> getUserById(int userId) async {

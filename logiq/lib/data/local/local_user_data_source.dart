@@ -5,8 +5,6 @@ import '../../core/database/database_tables.dart';
 import '../../models/transporter.dart';
 import '../../models/user.dart';
 
-/// Local (SQLite) access to users / transporters.
-/// REPLACE WITH: ApiUserService (Dio) when company REST APIs arrive.
 class LocalUserDataSource {
   LocalUserDataSource._();
   static final LocalUserDataSource instance = LocalUserDataSource._();
@@ -132,8 +130,6 @@ class LocalUserDataSource {
     });
   }
 
-  // ---------- transporter companies ----------
-
   Future<Transporter?> byUserId(int userId) async {
     final db = await _db;
     final rows = await db.query(DatabaseTables.transporters,
@@ -162,11 +158,31 @@ class LocalUserDataSource {
     final db = await _db;
     final placeholders = List.filled(ids.length, '?').join(',');
     final rows = await db.query(DatabaseTables.transporters,
-        columns: ['id', 'company_name'],
-        where: 'id IN ($placeholders)',
-        whereArgs: ids);
-    return {
-      for (final r in rows) r['id'] as int: r['company_name'] as String,
-    };
+        columns: ['id', 'user_id', 'company_name'],
+        where: 'id IN ($placeholders) OR user_id IN ($placeholders)',
+        whereArgs: [...ids, ...ids]);
+    final map = <int, String>{};
+    for (final r in rows) {
+      final name = (r['company_name'] as String?)?.trim();
+      if (name != null && name.isNotEmpty) {
+        if (r['id'] != null) map[r['id'] as int] = name;
+        if (r['user_id'] != null) map[r['user_id'] as int] = name;
+      }
+    }
+    final missing = ids.where((id) => !map.containsKey(id)).toList();
+    if (missing.isNotEmpty) {
+      final mPlaceholders = List.filled(missing.length, '?').join(',');
+      final uRows = await db.query(DatabaseTables.users,
+          columns: ['id', 'name', 'company_name'],
+          where: 'id IN ($mPlaceholders)',
+          whereArgs: missing);
+      for (final ur in uRows) {
+        final cName = (ur['company_name'] as String?)?.trim();
+        final uName = (ur['name'] as String?)?.trim();
+        final name = (cName != null && cName.isNotEmpty) ? cName : (uName ?? 'Carrier ${ur["id"]}');
+        map[ur['id'] as int] = name;
+      }
+    }
+    return map;
   }
 }

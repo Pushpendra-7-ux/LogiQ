@@ -9,6 +9,8 @@ import 'package:logiq/models/tender.dart';
 import 'package:logiq/providers/auth_provider.dart';
 import 'package:logiq/providers/tender_provider.dart';
 
+import 'package:logiq/services/auth_service.dart';
+
 class ActiveAuctionsScreen extends StatefulWidget {
   const ActiveAuctionsScreen({super.key});
 
@@ -20,10 +22,18 @@ class _ActiveAuctionsScreenState extends State<ActiveAuctionsScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final tid = context.read<AuthProvider>().currentTransporter?.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final auth = context.read<AuthProvider>();
+      var tid = auth.currentTransporter?.id;
+      if (tid == null && auth.currentUser != null) {
+        final profile = await AuthService.instance.ensureTransporterProfile(auth.currentUser!);
+        tid = profile?.id;
+      }
+      if (!mounted) return;
       if (tid != null) {
         context.read<TenderProvider>().loadTendersForTransporter(tid);
+      } else {
+        context.read<TenderProvider>().loadAllTenders();
       }
     });
   }

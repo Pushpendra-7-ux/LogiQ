@@ -6,8 +6,6 @@ import '../../models/auction.dart';
 import '../../models/auction_participant.dart';
 import '../../models/auction_result.dart';
 
-/// Local (SQLite) access to auctions, participants and results.
-/// REPLACE WITH: remote implementation when company REST APIs arrive.
 class LocalAuctionDataSource {
   LocalAuctionDataSource._();
   static final LocalAuctionDataSource instance = LocalAuctionDataSource._();
@@ -48,14 +46,19 @@ class LocalAuctionDataSource {
   Future<void> save(Auction auction) async {
     final db = await _db;
     if (auction.id == null) {
-      await db.insert(DatabaseTables.auctions, auction.toMap()..remove('id'));
+      final existing = await byTenderId(auction.tenderId);
+      if (existing != null && existing.id != null) {
+        await db.update(DatabaseTables.auctions, auction.toMap()..remove('id'),
+            where: 'id = ?', whereArgs: [existing.id]);
+      } else {
+        await db.insert(DatabaseTables.auctions, auction.toMap()..remove('id'));
+      }
     } else {
       await db.update(DatabaseTables.auctions, auction.toMap()..remove('id'),
           where: 'id = ?', whereArgs: [auction.id]);
     }
   }
 
-  /// Ensures auction_participant rows exist for a tender's participants.
   Future<void> syncParticipants(
       int auctionId, List<int> transporterIds) async {
     final db = await _db;

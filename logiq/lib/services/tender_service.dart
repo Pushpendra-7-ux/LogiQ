@@ -6,9 +6,6 @@ import 'package:logiq/models/material.dart';
 import 'package:logiq/models/tender.dart';
 import 'package:logiq/models/transporter.dart';
 
-/// Service layer abstraction for Tender management and draft workflows.
-/// Providers communicate with this service instead of LocalTenderDataSource directly.
-/// When REST APIs arrive, only this service will be updated to use DioClient.
 class TenderService {
   TenderService._();
   static final TenderService instance = TenderService._();
@@ -85,16 +82,32 @@ class TenderService {
     await _tenderDataSource.setStatus(tenderId, status);
   }
 
+  Future<void> updateStatusAndSchedule({
+    required int tenderId,
+    required TenderStatus status,
+    required DateTime biddingStart,
+    required DateTime softEnd,
+    required DateTime hardStop,
+  }) async {
+    await _tenderDataSource.updateStatusAndSchedule(
+      tenderId: tenderId,
+      status: status,
+      biddingStart: biddingStart,
+      softEnd: softEnd,
+      hardStop: hardStop,
+    );
+  }
+
   Future<void> deleteDraft(int tenderId) async {
     await _tenderDataSource.deleteDraft(tenderId);
   }
 
-  /// Create an auction record for a just-published tender.
   Future<void> createAuctionForTender({
     required int tenderId,
     required DateTime biddingStart,
     required DateTime softEnd,
     required DateTime hardStop,
+    AuctionStatus status = AuctionStatus.stage1Live,
   }) async {
     final auction = Auction(
       tenderId: tenderId,
@@ -103,11 +116,10 @@ class TenderService {
       stage1End: softEnd,
       stage2Start: softEnd,
       stage2End: hardStop,
-      status: AuctionStatus.scheduled,
+      status: status,
     );
     await _auctionDataSource.save(auction);
 
-    // Sync participants from tender_participants to auction_participants
     final participantIds = await _tenderDataSource.participantIds(tenderId);
     final savedAuction = await _auctionDataSource.byTenderId(tenderId);
     if (savedAuction?.id != null) {

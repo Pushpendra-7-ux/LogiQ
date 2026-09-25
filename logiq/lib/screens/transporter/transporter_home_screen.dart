@@ -58,13 +58,11 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final bidProv = context.watch<BidProvider>();
     final tenderProv = context.watch<TenderProvider>();
     final activeTenders = tenderProv.activeTenders;
 
     final companyName = auth.currentTransporter?.companyName ?? 'Apex Freight';
-    final activeBidsCount = bidProv.activeBids.length;
-    final wonBidsCount = bidProv.wonBids.length;
+
 
     return Scaffold(
       backgroundColor: AppColors.surfaceCanvas,
@@ -178,40 +176,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildMetricCol(
-                      title: 'ACTIVE BIDS',
-                      value: '$activeBidsCount',
-                      valueColor: AppColors.secondary,
-                      subtext: '📈 2 Lead',
-                      subtextColor: AppColors.emeraldSuccess,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildMetricCol(
-                      title: 'WON TODAY',
-                      value: '$wonBidsCount',
-                      valueColor: AppColors.navy,
-                      subtext: '₹1.05L val',
-                      subtextColor: AppColors.slate,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildMetricCol(
-                      title: 'L1 WIN RATE',
-                      value: '75%',
-                      valueColor: AppColors.emeraldSuccess,
-                      subtext: 'Top Tier',
-                      subtextColor: AppColors.slate,
-                    ),
-                  ),
-                ],
               ),
               const SizedBox(height: 14),
               if (activeTenders.isNotEmpty) ...[
@@ -604,53 +568,6 @@ class _TransporterHomeScreenState extends State<TransporterHomeScreen> {
     );
   }
 
-  Widget _buildMetricCol({
-    required String title,
-    required String value,
-    required Color valueColor,
-    required String subtext,
-    required Color subtextColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
-      child: Column(
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.slate,
-              fontSize: 9.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.3,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              color: valueColor,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            subtext,
-            style: TextStyle(
-              color: subtextColor,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildDynamicTenderCard(BuildContext context, Tender tender) {
     final isLive = tender.status == TenderStatus.stage1 || tender.status == TenderStatus.stage2;

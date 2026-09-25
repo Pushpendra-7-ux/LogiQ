@@ -17,6 +17,8 @@ import 'package:logiq/screens/user/user_home_screen.dart';
 import 'package:logiq/screens/transporter/transporter_home_screen.dart';
 import 'package:logiq/screens/transporter/stage2_live_screen.dart';
 import 'package:logiq/screens/transporter/bid_result_screen.dart';
+import 'package:logiq/screens/transporter/available_tenders_screen.dart';
+import 'package:logiq/core/widgets/tender_card.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -106,9 +108,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.text('CARRIER'), findsOneWidget);
-      expect(find.text('ACTIVE BIDS'), findsOneWidget);
-      expect(find.text('WON TODAY'), findsOneWidget);
-      expect(find.text('L1 WIN RATE'), findsOneWidget);
+      expect(find.text('ACTIVE BIDS'), findsNothing);
+      expect(find.text('WON TODAY'), findsNothing);
+      expect(find.text('L1 WIN RATE'), findsNothing);
     });
 
     testWidgets('Stage2LiveScreen displays blind auction controls and quick bid decrement chips', (tester) async {
@@ -224,6 +226,54 @@ void main() {
       expect(find.text('LOAD AWARDED!'), findsOneWidget);
       expect(find.text('FINAL WINNING RATE'), findsOneWidget);
       expect(find.text('ASSIGN TRUCK & DRIVER'), findsOneWidget);
+    });
+
+    testWidgets('TenderCard renders available tender cleanly without NoSuchMethodError', (tester) async {
+      final tender = Tender(
+        id: 201,
+        title: 'Industrial Cement Freight',
+        createdBy: 1,
+        pickup: 'Surat',
+        drop: 'Pune',
+        deliveryStart: DateTime.now().add(const Duration(days: 2)),
+        deliveryEnd: DateTime.now().add(const Duration(days: 5)),
+        closingDate: DateTime.now().add(const Duration(days: 1)),
+        biddingStart: DateTime.now().subtract(const Duration(minutes: 5)),
+        softEnd: DateTime.now().add(const Duration(minutes: 10)),
+        hardStop: DateTime.now().add(const Duration(minutes: 15)),
+        priceDifference: 50.0,
+        ceilingBid: 45000.0,
+        minDecrement: 50.0,
+        vehicleType: 'Trailer',
+        status: TenderStatus.stage1,
+        createdAt: DateTime.now(),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildAppTheme(),
+          home: Scaffold(
+            body: TenderCard(
+              tender: tender,
+              onTap: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.textContaining('Industrial Cement Freight'), findsOneWidget);
+      expect(find.text('#TDR-201'), findsOneWidget);
+      expect(find.text('₹45000'), findsOneWidget);
+      expect(find.text('Place Bid'), findsOneWidget);
+    });
+
+    testWidgets('AvailableTendersScreen displays Available Tenders header', (tester) async {
+      final auth = AuthProvider();
+      await tester.pumpWidget(buildTestApp(const AvailableTendersScreen(), auth: auth));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text('Available Tenders'), findsOneWidget);
     });
   });
 }
